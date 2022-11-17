@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 module Exekutor
-  module Work
+  module Jobs
     class Reserver
       ACTION_NAME = "Exekutor::Reserve"
 
@@ -29,7 +29,9 @@ module Exekutor
       end
 
       def earliest_scheduled_at
-        Exekutor::Job.pending.minimum(:scheduled_at)
+        jobs = Exekutor::Job.pending
+        jobs.where! @queue_filter_sql unless @queue_filter_sql.nil?
+        jobs.minimum(:scheduled_at)
       end
 
       private

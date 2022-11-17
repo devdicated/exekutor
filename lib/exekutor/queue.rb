@@ -20,14 +20,14 @@ module Exekutor
         scheduled_at = Time.now.to_i
       else
         case scheduled_at
-        when Integer
+        when Integer, Float
           raise ArgumentError, "scheduled_at must be a valid epoch" unless scheduled_at.positive?
         when Time
           scheduled_at = scheduled_at.to_f
         when Date
           scheduled_at = scheduled_at.to_time.to_f
         else
-          raise ArgumentError, "scheduled_at must be an epoch, time, or date"
+          raise ArgumentError, "scheduled_at must be an epoch, time, or date (was: #{scheduled_at.class})"
         end
       end
 

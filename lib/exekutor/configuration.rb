@@ -63,6 +63,10 @@ module Exekutor
       priority
     end
 
+    def verbose?
+      true
+    end
+
     private
 
     def const_get(parameter_name, parameter_value)

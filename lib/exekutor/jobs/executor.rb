@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 module Exekutor
-  module Work
+  module Jobs
     class Executor
+      include Executable
 
       def initialize(config = {})
+        super()
         @executor = ThreadPoolExecutor.new name: 'exekutor-job',
                                            fallback_policy: :abort,
                                            min_threads: config[:min_threads] || 1,
-                                           max_threads: config[:max_threads] || 10,
+                                           max_threads: config[:max_threads] || Exekutor::Job.connection_db_config.pool,
                                            max_queue: config[:max_threads] || 10
         @callbacks = {
           before_execute: Concurrent::Array.new,
@@ -15,7 +17,13 @@ module Exekutor
         }.freeze
       end
 
-      def shutdown
+      def start
+        set_state :started
+      end
+
+      def stop
+        set_state :stopped
+
         @executor.shutdown
       end
 

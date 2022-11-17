@@ -6,14 +6,14 @@ module Exekutor
         CHANNEL = "exekutor::job_enqueued"
         PROVIDER_CHANNEL = "exekutor::provider::%s"
 
-        def initialize(reserver:, queues:, executor:, wait_timeout: 10)
+        def initialize(reserver:, queues:, executor:, wait_timeout: 15, pool:)
           @uuid = SecureRandom.uuid
           @identifier = "Exekutor::Worker::#{@uuid}"
           @reserver = reserver
           @executor = executor
           @queues = queues || []
           @wait_timeout = wait_timeout
-          @task = Concurrent::TimerTask.new(execution_interval: 5, &method(:run))
+          @task = Concurrent::TimerTask.new(execution_interval: 15, &method(:run))
         end
 
         def start

@@ -1,54 +1,53 @@
 # frozen_string_literal: true
 module Exekutor
   class Worker
+    include Executable
 
     def self.start(config = {})
       new(config).tap { |w| w.start }
     end
 
     def initialize(config = {})
+      super()
       @record = create_record!
       @config = config
 
-      @reserver = Work::Reserver.new @record.id, config[:queues]
-      @executor = Work::Executor.new
-      @executor.after_execute do
-        Concurrent::Promises.future(&method(:reserve_jobs))
+      @reserver = Jobs::Reserver.new @record.id, config[:queues]
+      @executor = Jobs::Executor.new config
+
+      provider_pool = Concurrent::FixedThreadPool.new 2, name: "exekutor-provider", max_queue: 2
+      @provider = Jobs::Provider.new reserver: @reserver, executor: @executor, pool: provider_pool,
+                                     polling_interval: config[:polling_interval] || 60
+      listener = Jobs::Listener.new worker_id: @record.id, queues: config[:queues], provider: @provider,
+                                    pool: provider_pool
+
+      @executor.after_execute(@record) do |_job, worker_info|
+        worker_info.heartbeat!
+        @provider.poll
       end
 
-      @providers = []
-      @providers << Work::Providers::EventProvider.new(queues: config[:queues], reserver: @reserver, executor: @executor)
-      polling_interval = config.fetch(:polling_interval, 30)
-      if polling_interval&.positive?
-        @providers << Work::Providers::PollingProvider.new(interval: polling_interval, reserver: @reserver, executor: @executor)
-      end
-
-      @state = Concurrent::AtomicReference.new(:pending)
+      @executables = [@executor, @provider, listener]
     end
 
     def start
-      return false unless @state.compare_and_set(:pending, :started)
+      return false unless compare_and_set_state(:pending, :started)
 
-      @providers.each(&:start)
-      Concurrent::Promises.schedule(0.5.seconds, &method(:reserve_jobs))
-      @record.update(status: 'r')
+      @executables.each(&:start)
+      @record.update(status: "r")
       true
     end
 
     def stop
-      @state.set :stopped
-      @record.update(status: 's') unless @record.destroyed?
+      set_state :stopped
+      @record.update(status: "s") unless @record.destroyed?
 
-      @providers.each(&:stop)
-      @executor.shutdown
+      @executables.reverse_each(&:stop)
 
       if @config[:wait_for_termination]
         if @config[:wait_for_termination].zero?
           @executor.kill
         elsif @config[:wait_for_termination].positive?
-          unless @executor.wait_for_termination @config[:wait_for_termination]
-            @executor.kill
-          end
+          @executor.kill unless @executor.wait_for_termination @config[:wait_for_termination]
         else
           @executor.wait_for_termination
         end
@@ -58,17 +57,8 @@ module Exekutor
       true
     end
 
-    def state
-      @state.get
-    end
-
-    def running?
-      @state.get == :started
-    end
-
     def reserve_jobs
-      jobs = @reserver.reserve @executor.available_threads
-      jobs&.each(&@executor.method(:post))
+      @provider.poll
     end
 
     private
@@ -80,6 +70,5 @@ module Exekutor
                              info: {}
                            })
     end
-
   end
 end
