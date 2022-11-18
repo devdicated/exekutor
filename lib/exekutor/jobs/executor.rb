@@ -6,11 +6,13 @@ module Exekutor
 
       def initialize(config = {})
         super()
+        max_threads = config[:max_threads] || default_max_threads
+
         @executor = ThreadPoolExecutor.new name: 'exekutor-job',
                                            fallback_policy: :abort,
                                            min_threads: config[:min_threads] || 1,
-                                           max_threads: config[:max_threads] || Exekutor::Job.connection_db_config.pool,
-                                           max_queue: config[:max_threads] || 10
+                                           max_threads: max_threads,
+                                           max_queue: max_threads
         @callbacks = {
           before_execute: Concurrent::Array.new,
           after_execute: Concurrent::Array.new
@@ -38,6 +40,7 @@ module Exekutor
       def post(job)
         @executor.post job, &method(:execute)
       rescue Concurrent::RejectedExecutionError
+        Exekutor.say "Ran out of threads! Releasing job #{job[:id]}"
         update_job job, status: "p", worker_id: nil
       end
 
@@ -75,11 +78,24 @@ module Exekutor
       def run_callbacks(type, job, *args)
         callbacks = @callbacks[type]
         callbacks&.each do |(callback, extra_args)|
-          if callback.arity.positive?
-            callback.call(job, *args, *extra_args)
-          else
-            callback.call
+          begin
+            if callback.arity.positive?
+              callback.call(job, *args, *extra_args)
+            else
+              callback.call
+            end
+          rescue StandardError => err
+            Exekutor.print_error err, "[Executor] Callback error!"
           end
+        end
+      end
+
+      def default_max_threads
+        connection_pool_size = Exekutor::Job.connection_db_config.pool
+        if connection_pool_size && connection_pool_size > 2
+          connection_pool_size - 1
+        else
+          1
         end
       end
 

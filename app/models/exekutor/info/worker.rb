@@ -7,7 +7,7 @@ module Exekutor
 
       def heartbeat!
         now = Time.now.change(sec: 0)
-        touch :last_heartbeat_at, time: now if now >= self.last_heartbeat_at + 1.minute
+        touch :last_heartbeat_at, time: now if self.last_heartbeat_at.nil? || now >= self.last_heartbeat_at + 1.minute
       end
     end
   end

@@ -54,8 +54,8 @@ module Exekutor
           end
         end
         Exekutor.say "[Listener] Listening has ended"
-      rescue StandardError => e
-        Exekutor.say! "[Listener] Biem! #{e}"
+      rescue StandardError => err
+        Exekutor.print_error err, "[Listener] Runtime error!"
         # TODO crash if too many failures
         if running?
           Exekutor.say "[Listener] Restarting in 10 seconds…"
@@ -96,7 +96,7 @@ module Exekutor
         pg_conn = ar_conn.raw_connection
 
         verify!(pg_conn)
-        pg_conn.exec("SET application_name = #{pg_conn.escape_identifier("Exekutor::Worker::#{@worker_id}")}")
+        pg_conn.exec("SET application_name = #{pg_conn.escape_identifier("Exekutor::#{@worker_id}")}/Listener")
         yield pg_conn
       ensure
         ar_conn.disconnect!

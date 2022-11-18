@@ -19,13 +19,16 @@ module Exekutor
 
         @event = Concurrent::Event.new
         @thread_running = Concurrent::AtomicBoolean.new false
-        @reserve_now = Concurrent::AtomicBoolean.new false
+
         @next_job_scheduled_at = Concurrent::AtomicReference.new UNKNOWN
+        @next_poll_at = Concurrent::AtomicReference.new nil
       end
 
       def start
         return false unless compare_and_set_state :pending, :started
 
+        # Always poll at startup to fill up threads
+        @next_poll_at.set 1.second.from_now
         start_thread
         true
       end
@@ -38,8 +41,7 @@ module Exekutor
       def poll
         raise Exekutor::Error, "Provider is not running" unless running?
 
-        Exekutor.say "[Provider] #Poll"
-        @reserve_now.make_true
+        @next_poll_at.set Time.now
         @event.set
       end
 
@@ -58,10 +60,17 @@ module Exekutor
           raise ArgumentError, "scheduled_at must be a Time or Numeric"
         end
 
+        updated = false
         scheduled_at = @next_job_scheduled_at.update do |current|
           if current == UNKNOWN
-            overwrite_unknown || scheduled_at <= Time.now ? scheduled_at : current
+            if overwrite_unknown || scheduled_at <= Time.now
+              updated = true
+              scheduled_at
+            else
+              current
+            end
           elsif current.nil? || scheduled_at.nil? || current > scheduled_at
+            updated = true
             scheduled_at
           else
             current
@@ -70,7 +79,7 @@ module Exekutor
         if scheduled_at == UNKNOWN
           nil
         else
-          @event.set if scheduled_at.present? && scheduled_at <= Time.now
+          @event.set if updated && scheduled_at.present?
           scheduled_at
         end
       end
@@ -88,14 +97,14 @@ module Exekutor
         catch(:shutdown) do
           while running? do
             wait_for_event
-            next unless @reserve_now.make_false || polling_enabled? || jobs_pending?
+            next unless reserve_jobs_now?
 
             reserve_and_execute_jobs
           end
         end
-        Exekutor.say "[Listener] Providing has ended"
-      rescue StandardError => e
-        Exekutor.say! "[Provider] Biem! #{e}"
+        Exekutor.say "[Provider] Providing has ended"
+      rescue StandardError => err
+        Exekutor.print_error err, "[Provider] Runtime error!"
         # TODO crash if too many failures
         if running?
           Exekutor.say "[Provider] Restarting in 10 seconds…"
@@ -107,9 +116,11 @@ module Exekutor
 
       def wait_for_event
         timeout = wait_timeout
-        @event.wait timeout if timeout.positive?
+        return unless timeout.positive?
+
+        @event.wait timeout
       rescue StandardError => err
-        Exekutor.say! "[Provider] An error occurred while waiting: #{err}"
+        Exekutor.print_error err, "[Provider] An error occurred while waiting"
       ensure
         throw :shutdown unless running?
         @event.reset
@@ -120,11 +131,19 @@ module Exekutor
         return unless available_threads.positive?
 
         jobs = @reserver.reserve available_threads
+        Exekutor.say "[Provider] Reserved #{jobs.size.to_i} jobs" unless jobs.nil?
         jobs&.each(&@executor.method(:post))
-        return unless jobs.nil? || jobs.size.to_i < available_threads
 
-        # If we ran out of work, update the earliest scheduled at
-        update_earliest_scheduled_at
+        if jobs.nil? || jobs.size.to_i < available_threads
+          # If we ran out of work, update the earliest scheduled at
+          update_earliest_scheduled_at
+
+          # TODO worker.heartbeat!
+
+        elsif @next_job_scheduled_at.get == UNKNOWN
+          # If the next job timestamp is still unknown, set it to now to indicate there's still work to do
+          @next_job_scheduled_at.set Time.now
+        end
       end
 
       def polling_enabled?
@@ -133,31 +152,51 @@ module Exekutor
 
       def wait_timeout
         next_job_scheduled_at = @next_job_scheduled_at.get
-
-        # Start the very first poll after 1 second
-        return 1 if next_job_scheduled_at == UNKNOWN
+        next_job_scheduled_at = nil if next_job_scheduled_at == UNKNOWN
 
         max_interval = if polling_enabled?
-                         @polling_interval + if @interval_jitter.zero?
-                                               0
-                                             else
-                                               (Kernel.rand - 0.5) * @interval_jitter
-                                             end
+                         @next_poll_at.update do |planned_at|
+                           planned_at || (Time.now + get_polling_interval)
+                         end.to_f - Time.now.to_f
                        else
                          60
                        end
-        if next_job_scheduled_at.nil?
+        if next_job_scheduled_at.nil? || @executor.available_threads.zero?
           max_interval
-        elsif next_job_scheduled_at <= Time.now
+        elsif next_job_scheduled_at <= Time.now || max_interval <= 0.001
           0
         else
           [next_job_scheduled_at - Time.now, max_interval].min
         end
       end
 
+      def reserve_jobs_now?
+        next_poll_at = @next_poll_at.get
+        if next_poll_at && next_poll_at < Time.now
+          @next_poll_at.update do
+            if polling_enabled?
+              Time.now + get_polling_interval
+            else
+              nil
+            end
+          end
+          return true
+        end
+
+        next_job_at = @next_job_scheduled_at.get
+        next_job_at == UNKNOWN || (next_job_at && next_job_at <= Time.now)
+      end
+
+      def get_polling_interval
+        raise "Polling is disabled" unless @polling_interval.present?
+        @polling_interval + if @interval_jitter.zero?
+                              0
+                            else
+                              (Kernel.rand - 0.5) * @interval_jitter
+                            end
+      end
+
       def jobs_pending?
-        scheduled_at = @next_job_scheduled_at.get
-        scheduled_at == UNKNOWN || (scheduled_at && scheduled_at <= Time.now)
       end
     end
   end

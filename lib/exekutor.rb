@@ -20,6 +20,15 @@ module Exekutor
     puts(*args)
   end
 
+  def self.print_error(err, message = nil)
+    @cleaner ||= ActiveSupport::BacktraceCleaner.new
+    printf "\033[31m"
+    puts message if message
+    puts "#{err.class} – #{err.message}"
+    puts "at #{@cleaner.clean(err.backtrace).join("\n   ")}"
+    printf "\033[0m"
+  end
+
   class Error < StandardError; end
 end
 
