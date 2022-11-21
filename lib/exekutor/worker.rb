@@ -23,7 +23,7 @@ module Exekutor
 
       @executor.after_execute(@record) do |_job, worker_info|
         worker_info.heartbeat!
-        @provider.poll
+        @provider.poll if @provider.running?
       end
 
       @executables = [@executor, @provider, listener]

@@ -1,3 +1,5 @@
+require_relative 'daemon'
+
 module Exekutor
   # The command line interface for the worker
   class CLI < Thor
@@ -31,33 +33,38 @@ module Exekutor
     TEXT
     method_option :environment,
                   type: :string,
-                  aliases: %i[env],
+                  aliases: %w[-env],
                   desc: "The rails environment. (env var: RAILS_ENV, default: development)"
     method_option :queue,
                   type: :string,
-                  aliases: %i[q],
+                  aliases: %w[-q],
                   repeatable: true,
                   desc: "Queues or queue pools to work from. (env var: GOOD_JOB_QUEUES, default: *)"
     method_option :max_threads,
                   type: :numeric,
-                  aliases: %i[t],
+                  aliases: %w[-t],
                   desc: "Default number of threads per pool to use for working jobs. (env var: GOOD_JOB_MAX_THREADS, default: 5)"
     method_option :poll_interval,
                   type: :numeric,
-                  aliases: %i[p],
+                  aliases: %w[-p],
                   desc: "Interval between polls for available jobs in seconds (env var: GOOD_JOB_POLL_INTERVAL, default: 60)"
     method_option :daemonize,
                   type: :boolean,
-                  aliases: %i[d],
+                  aliases: %w[-d],
                   default: false,
                   desc: "Run as a background daemon (default: false)"
+    method_option :verbose,
+                  type: :boolean,
+                  aliases: %w[-v],
+                  default: false,
+                  desc: "Enable more output (default: false)"
 
     def start
       load_application!(options[:environment])
       configuration = Exekutor.config.worker_options
                               .merge(options.without(:environment, :deamonize, :pidfile, :identifier))
 
-      # TODO Daemon.new(pidfile: configuration.pidfile).daemonize if configuration.daemonize?
+      Daemon.new(pidfile: pidfile(configuration)).daemonize if options.daemonize?
       # TODO health check server
 
       worker = Worker.new(configuration)
@@ -66,13 +73,14 @@ module Exekutor
       end
 
       worker.start
+      Exekutor.say! "Worker running at #{::Process.pid}" if options.daemonize?
       begin
         worker.join
-      rescue StandardError => e
-        Exekutor.print_error e
       ensure
         worker.stop if worker.running?
       end
+    rescue StandardError => e
+      Exekutor.print_error e
     end
 
     default_task :start
@@ -124,45 +132,38 @@ module Exekutor
 
     no_commands do
       def stop!(quiet: false, wait_timeout: nil)
-        pidfile = options[:pidfile]
-        if options[:identifier]
-          pidfile ||= DEFAULT_DESCRIPTOR_PIDFILE
-          pidfile = pidfile.sub "%{identifier}", options[:identifier] if pidfile.include?("%{identifier}")
-        else
-          pidfile ||= DEFAULT_PIDFILE
-        end
-        unless File.exist? pidfile
-          puts "Executor is not running (pidfile not found at #{pidfile})" unless quiet
+        daemon = Daemon.new(pidfile: pidfile(options))
+        pid = daemon.pid
+        if pid.nil?
+          puts "Executor is not running (pidfile not found at #{daemon.pidfile})" unless quiet
+          return
+        elsif daemon.status? :not_running, :dead
           return
         end
 
-        pid = File.read pidfile
-        unless pid.to_i.positive?
-          puts "Illegal PID file ('#{pid.truncate 100}' is not a pid)" unless quiet
-          return
-        end
-
-        Process.kill("INT", pid.to_i)
+        Process.kill("INT", pid)
         sleep(0.3)
         wait_until = wait_timeout.nil? ? nil : Time.now + wait_timeout
-        while process_alive?(pid.to_i)
+        while daemon.status?(:running, :not_owned)
           if wait_until && wait_until > Time.now
-            Process.kill("TERM", pid.to_i)
+            Process.kill("TERM", pid)
             break
           end
           sleep 0.1
         end
       end
 
-      private
-
-      def process_alive?(pid)
-        # If sig is 0, then no signal is sent, but error checking is still performed; this can be used to check for the
-        # existence of a process ID or process group ID.
-        !!Process.kill(0, pid)
-      rescue StandardError
-        false
+      def pidfile(options)
+        pidfile = options[:pidfile]
+        if options[:identifier]
+          pidfile ||= DEFAULT_DESCRIPTOR_PIDFILE
+          pidfile.sub "%{identifier}", options[:identifier] if pidfile.include?("%{identifier}")
+        else
+          pidfile || DEFAULT_PIDFILE
+        end
       end
+
+      private
 
       def load_application!(environment)
         ENV["RAILS_ENV"] = environment unless environment.nil?
