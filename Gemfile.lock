@@ -5,6 +5,7 @@ PATH
       activejob (>= 6.0, < 8.0)
       activerecord (>= 6.0, < 8.0)
       concurrent-ruby (~> 1.1)
+      thor (>= 1.0)
 
 GEM
   remote: https://rubygems.org/
@@ -51,6 +52,7 @@ GEM
     rubocop-ast (1.23.0)
       parser (>= 3.1.1.0)
     ruby-progressbar (1.11.0)
+    thor (1.2.1)
     tzinfo (2.0.5)
       concurrent-ruby (~> 1.0)
     unicode-display_width (2.3.0)
@@ -64,6 +66,7 @@ DEPENDENCIES
   minitest (~> 5.0)
   rake (~> 13.0)
   rubocop (~> 1.21)
+  thor (~> 1.2)
 
 BUNDLED WITH
    2.3.25

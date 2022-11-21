@@ -54,7 +54,26 @@ module Exekutor
       end
 
       @record.destroy
+      @stop_event&.set
       true
+    end
+
+    def kill
+      Thread.new do
+        @executables.reverse_each(&:stop)
+        @stop_event&.set
+      end
+      @executor.kill
+      @record.destroy
+      true
+    end
+
+    def join
+      @stop_event = Concurrent::Event.new
+      Kernel.loop do
+        @stop_event.wait 10
+        break unless running?
+      end
     end
 
     def reserve_jobs

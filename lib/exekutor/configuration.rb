@@ -7,6 +7,7 @@ module Exekutor
     DEFAULT_LOGGER = Object.new
 
     # TODO guard clauses for writers so we don't need to validate every read
+    # TODO implement #worker_options
 
     attr_accessor :job_base_class_name, :json_serializer, :logger, :default_queue_name, :default_queue_priority,
                   :named_priorities
@@ -65,6 +66,10 @@ module Exekutor
 
     def verbose?
       true
+    end
+
+    def worker_options
+      {}
     end
 
     private

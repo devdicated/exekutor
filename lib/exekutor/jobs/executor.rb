@@ -29,6 +29,11 @@ module Exekutor
         @executor.shutdown
       end
 
+      def kill
+        Thread.new { compare_and_set_state :started, :killed }
+        @executor.kill
+      end
+
       def before_execute(*args, &callback)
         @callbacks[:before_execute] << [callback, args]
       end

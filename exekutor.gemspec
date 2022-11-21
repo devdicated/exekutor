@@ -22,20 +22,16 @@ Gem::Specification.new do |spec|
 
   spec.files = Dir[
     "app/**/*",
-    "config/**/*",
     "lib/**/*",
     "LICENSE.txt",
   ]
-
-  spec.bindir = "exe"
-  spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  # Uncomment to register a new dependency of your gem
+  spec.bindir = "exe"
+  spec.executables = %w[exekutor]
+
   spec.add_dependency "activejob", ">= 6.0", "< 8.0"
   spec.add_dependency "activerecord", ">= 6.0", "< 8.0"
   spec.add_dependency "concurrent-ruby", "~> 1.1"
-
-  # For more information and examples about making a new gem, checkout our
-  # guide at: https://bundler.io/guides/creating_gem.html
+  spec.add_dependency "thor", ">= 1.0"
 end
