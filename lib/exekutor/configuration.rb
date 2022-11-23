@@ -4,7 +4,8 @@ module Exekutor
   class Configuration
     DEFAULT_QUEUE_NAME = "default"
     DEFAULT_QUEUE_PRIORITY = 16_383
-    DEFAULT_LOGGER = Object.new
+
+    DEFAULT_VALUE = Object.new
 
     # TODO guard clauses for writers so we don't need to validate every read
     # TODO implement #worker_options
@@ -16,12 +17,13 @@ module Exekutor
       # Defaults
       @job_base_class_name = "ActiveRecord::Base"
       @json_serializer = JSON
-      @logger = DEFAULT_LOGGER
+      @logger = DEFAULT_VALUE
       @default_queue_name = DEFAULT_QUEUE_NAME
       @default_queue_priority = DEFAULT_QUEUE_PRIORITY
     end
 
     def job_base_class
+      puts "joeh!"
       raise Error, "#job_base_class_name is not configured" if job_base_class_name.blank?
 
       const_get :job_base_class_name, job_base_class_name
@@ -99,5 +101,9 @@ module Exekutor
 
     class Error < StandardError; end
 
+  end
+
+  def self.config
+    @config ||= Exekutor::Configuration.new
   end
 end

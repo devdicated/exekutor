@@ -1,5 +1,4 @@
 # frozen_string_literal: true
-
 module Exekutor
   # Ruby on Rails integration.
   class Engine < ::Rails::Engine
@@ -9,7 +8,7 @@ module Exekutor
 
     initializer "exekutor.logger" do |_app|
       ActiveSupport.on_load(:exekutor) do
-        self.logger = ::Rails.logger if Exekutor.config.logger == Exekutor::Configuration::DEFAULT_LOGGER
+        # self.logger = ::Rails.logger if Exekutor.config.logger == Exekutor::Configuration::DEFAULT_VALUE
       end
     end
   end

@@ -14,7 +14,7 @@ module Exekutor
     # Daemonizes the current process and writes out a pidfile.
     # @return [void]
     def daemonize
-      check_pid!
+      validate!
       ::Process.daemon true
       write_pid
     end
@@ -49,24 +49,8 @@ module Exekutor
       statuses.include? self.status
     end
 
-    private
-
     # @return [void]
-    def write_pid
-      File.open(pidfile, ::File::CREAT | ::File::EXCL | ::File::WRONLY) { |f| f.write(::Process.pid.to_s) }
-      at_exit { delete_pid }
-    rescue Errno::EEXIST
-      check_pid!
-      retry
-    end
-
-    # @return [void]
-    def delete_pid
-      File.delete(pidfile) if File.exist?(pidfile)
-    end
-
-    # @return [void]
-    def check_pid!
+    def validate!
       case self.status
       when :running, :not_owned
         raise Error, "A server is already running. Check #{pidfile}"
@@ -75,6 +59,23 @@ module Exekutor
       end
       nil
     end
+
+    private
+
+    # @return [void]
+    def write_pid
+      File.open(pidfile, ::File::CREAT | ::File::EXCL | ::File::WRONLY) { |f| f.write(::Process.pid.to_s) }
+      at_exit { delete_pid }
+    rescue Errno::EEXIST
+      validate!
+      retry
+    end
+
+    # @return [void]
+    def delete_pid
+      File.delete(pidfile) if File.exist?(pidfile)
+    end
+
 
     class Error < StandardError
     end

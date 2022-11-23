@@ -2,16 +2,20 @@
 
 require_relative "exekutor/version"
 
-require "active_job"
-require "active_job/queue_adapters"
-
 require_relative "exekutor/configuration"
+require_relative "exekutor/logger"
+
+require_relative "exekutor/queue"
+require_relative "active_job/queue_adapters/exekutor_adapter"
+
+require_relative "exekutor/executable"
+
+require_relative "exekutor/jobs/reserver"
+require_relative "exekutor/jobs/executor"
+require_relative "exekutor/jobs/provider"
+require_relative "exekutor/jobs/listener"
 
 module Exekutor
-  def self.config
-    @config ||= Exekutor::Configuration.new
-  end
-
   def self.say(*args)
     say!(*args) if config.verbose?
   end
@@ -32,17 +36,8 @@ module Exekutor
   class Error < StandardError; end
 end
 
-require_relative "exekutor/queue"
-require_relative "active_job/queue_adapters/exekutor_adapter"
-
-require_relative "exekutor/executable"
-
-require_relative "exekutor/jobs/reserver"
-require_relative "exekutor/jobs/executor"
-require_relative "exekutor/jobs/provider"
-require_relative "exekutor/jobs/listener"
-
 require_relative "exekutor/worker"
-
 # TODO do we really need an engine?
 require_relative "exekutor/engine"
+
+ActiveSupport.run_load_hooks(:exekutor, self)

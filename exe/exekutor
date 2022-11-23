@@ -1,6 +1,5 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
-require "thor"
 require "exekutor/cli"
 
 Exekutor::CLI.start(ARGV)

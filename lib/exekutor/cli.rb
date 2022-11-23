@@ -1,4 +1,6 @@
-require_relative 'daemon'
+require "thor"
+require "rainbow"
+require_relative "daemon"
 
 module Exekutor
   # The command line interface for the worker
@@ -60,27 +62,41 @@ module Exekutor
                   desc: "Enable more output (default: false)"
 
     def start
+      if options.daemonize?
+        begin
+          daemonizer = Daemon.new(pidfile: pidfile(options))
+          daemonizer.validate!
+          puts "Running worker as a daemon… (Use `#{Rainbow("exekutor stop").indianred}` to stop)"
+          daemonizer.daemonize
+        rescue Daemon::Error => e
+          puts Rainbow(e.message).red
+          exit 1
+        end
+      end
+
       load_application!(options[:environment])
-      configuration = Exekutor.config.worker_options
-                              .merge(options.without(:environment, :deamonize, :pidfile, :identifier))
 
-      Daemon.new(pidfile: pidfile(configuration)).daemonize if options.daemonize?
       # TODO health check server
+      configuration = Exekutor.config.worker_options
+                              .merge(options.without(:environment, :daemonize, :pidfile, :identifier))
 
-      worker = Worker.new(configuration)
-      %w[INT TERM QUIT].each do |signal|
-        trap(signal) { Thread.new { worker.stop } }
-      end
+      ActiveSupport.on_load(:exekutor) do
+        ActiveSupport.on_load(:active_record) do
+          ActiveSupport.on_load(:active_job) do
+            worker = Worker.new(configuration)
+            %w[INT TERM QUIT].each do |signal|
+              trap(signal) { Thread.new { worker.stop } }
+            end
 
-      worker.start
-      Exekutor.say! "Worker running at #{::Process.pid}" if options.daemonize?
-      begin
-        worker.join
-      ensure
-        worker.stop if worker.running?
+            begin
+              worker.start
+              worker.join
+            ensure
+              worker.stop if worker.running?
+            end
+          end
+        end
       end
-    rescue StandardError => e
-      Exekutor.print_error e
     end
 
     default_task :start
@@ -127,6 +143,7 @@ module Exekutor
     def restart
       stop!(quiet: true)
       sleep(1)
+      self.options = options.merge(daemonize: true).freeze
       start
     end
 
@@ -145,12 +162,14 @@ module Exekutor
         sleep(0.3)
         wait_until = wait_timeout.nil? ? nil : Time.now + wait_timeout
         while daemon.status?(:running, :not_owned)
+          puts "Waiting for worker to finish…"
           if wait_until && wait_until > Time.now
             Process.kill("TERM", pid)
             break
           end
           sleep 0.1
         end
+        puts "Worker (PID: #{pid}) stopped."
       end
 
       def pidfile(options)

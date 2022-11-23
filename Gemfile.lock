@@ -5,6 +5,7 @@ PATH
       activejob (>= 6.0, < 8.0)
       activerecord (>= 6.0, < 8.0)
       concurrent-ruby (~> 1.1)
+      rainbow (>= 3.0)
       thor (>= 1.0)
 
 GEM
@@ -64,6 +65,7 @@ PLATFORMS
 DEPENDENCIES
   exekutor!
   minitest (~> 5.0)
+  rainbow (~> 3.1)
   rake (~> 13.0)
   rubocop (~> 1.21)
   thor (~> 1.2)

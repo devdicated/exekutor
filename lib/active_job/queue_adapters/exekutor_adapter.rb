@@ -1,4 +1,7 @@
 # frozen_string_literal: true
+require "active_job"
+require "active_job/queue_adapters"
+
 module ActiveJob
   module QueueAdapters
     class ExekutorAdapter < Exekutor::Queue
