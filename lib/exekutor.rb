@@ -9,6 +9,7 @@ require_relative "exekutor/queue"
 require_relative "active_job/queue_adapters/exekutor_adapter"
 
 require_relative "exekutor/executable"
+require_relative "exekutor/connection"
 
 require_relative "exekutor/jobs/reserver"
 require_relative "exekutor/jobs/executor"

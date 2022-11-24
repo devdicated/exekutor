@@ -76,8 +76,6 @@ module Exekutor
       File.delete(pidfile) if File.exist?(pidfile)
     end
 
-
-    class Error < StandardError
-    end
+    class Error < StandardError; end
   end
 end

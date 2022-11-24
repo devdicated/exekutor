@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
-require "exekutor/cli"
+require "exekutor/cli/app"
 
-Exekutor::CLI.start(ARGV)
+exit Exekutor::CLI::App.run(ARGV)

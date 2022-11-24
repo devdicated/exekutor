@@ -23,7 +23,6 @@ module Exekutor
     end
 
     def job_base_class
-      puts "joeh!"
       raise Error, "#job_base_class_name is not configured" if job_base_class_name.blank?
 
       const_get :job_base_class_name, job_base_class_name

@@ -18,8 +18,9 @@ module Exekutor
       provider_pool = Concurrent::FixedThreadPool.new 2, name: "exekutor-provider", max_queue: 2
       @provider = Jobs::Provider.new reserver: @reserver, executor: @executor, pool: provider_pool,
                                      polling_interval: config[:polling_interval] || 60
-      listener = Jobs::Listener.new worker_id: @record.id, queues: config[:queues], provider: @provider,
-                                    pool: provider_pool
+      listener = Jobs::Listener.new worker_id: @record.id, provider: @provider, pool: provider_pool,
+                                    queues: config[:queues],
+                                    set_connection_application_name: config[:set_connection_application_name]
 
       @executor.after_execute(@record) do |_job, worker_info|
         worker_info.heartbeat!
@@ -78,6 +79,10 @@ module Exekutor
 
     def reserve_jobs
       @provider.poll
+    end
+
+    def id
+      @record.id
     end
 
     private
