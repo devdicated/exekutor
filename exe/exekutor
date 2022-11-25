@@ -2,4 +2,6 @@
 # frozen_string_literal: true
 require "exekutor/cli/app"
 
+Process.setproctitle "Exekutor worker (Initializing…) [#{$PROGRAM_NAME}]"
+
 exit Exekutor::CLI::App.run(ARGV)

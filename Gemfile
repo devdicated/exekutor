@@ -14,3 +14,5 @@ gem "rubocop", "~> 1.21"
 gem "rainbow", "~> 3.1"
 
 gem "gli", "~> 2.21"
+
+gem "terminal-table", "~> 3.0"

@@ -9,8 +9,8 @@ module Exekutor
 
     def initialize(config = {})
       super()
-      @record = create_record!
       @config = config
+      @record = create_record!
 
       @reserver = Jobs::Reserver.new @record.id, config[:queues]
       @executor = Jobs::Executor.new config
@@ -88,10 +88,13 @@ module Exekutor
     private
 
     def create_record!
+      info = {}
+      info.merge!(@config.slice(:identifier, :max_threads, :queues, :poll_interval))
+      puts "config: #{@config.inspect}, info: #{info.inspect}"
       Info::Worker.create!({
                              hostname: Socket.gethostname,
                              pid: Process.pid,
-                             info: {}
+                             info: info.compact
                            })
     end
   end

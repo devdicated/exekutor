@@ -35,4 +35,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "concurrent-ruby", "~> 1.1"
   spec.add_dependency "gli", ">= 2"
   spec.add_dependency "rainbow", ">= 3.0"
+  spec.add_dependency "terminal-table", ">= 3.0"
 end
