@@ -86,7 +86,7 @@ module Exekutor
                          Exekutor.say! "[Listener] Invalid notification payload: #{payload}"
                          next
                        end
-            unless %w[id q t].all? { |n| job_info[n].include? }
+            unless %w[id q t].all? { |n| job_info[n].present? }
               Exekutor.say! "[Listener] Notification payload is missing #{%w[id q t].select { |n| job_info[n].blank? }.join(", ")}"
               next
             end

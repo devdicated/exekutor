@@ -2,20 +2,6 @@
 
 require_relative "exekutor/version"
 
-require_relative "exekutor/configuration"
-require_relative "exekutor/logger"
-
-require_relative "exekutor/queue"
-require_relative "active_job/queue_adapters/exekutor_adapter"
-
-require_relative "exekutor/executable"
-require_relative "exekutor/connection"
-
-require_relative "exekutor/jobs/reserver"
-require_relative "exekutor/jobs/executor"
-require_relative "exekutor/jobs/provider"
-require_relative "exekutor/jobs/listener"
-
 module Exekutor
   def self.say(*args)
     say!(*args) if config.verbose?
@@ -35,7 +21,23 @@ module Exekutor
   end
 
   class Error < StandardError; end
+  class DiscardJob < Error; end
 end
+
+require_relative "exekutor/configuration"
+require_relative "exekutor/logger"
+
+require_relative "exekutor/queue"
+require_relative "active_job/queue_adapters/exekutor_adapter"
+
+require_relative "exekutor/connection"
+require_relative "exekutor/executable"
+require_relative "exekutor/job_options"
+
+require_relative "exekutor/jobs/reserver"
+require_relative "exekutor/jobs/executor"
+require_relative "exekutor/jobs/provider"
+require_relative "exekutor/jobs/listener"
 
 require_relative "exekutor/worker"
 # TODO do we really need an engine?

@@ -32,10 +32,8 @@ module Exekutor
       end
 
       json_serializer = Exekutor.config.json_serializer_class
-      # TODO add extra Exekutor options (eg. ExpiresAt)
-      options = nil
 
-      Exekutor::Job.connection.exec_query <<~SQL, ACTION_NAME, job_sql_binds(job, scheduled_at, options, json_serializer), prepare: true
+      Exekutor::Job.connection.exec_query <<~SQL, ACTION_NAME, job_sql_binds(job, scheduled_at, json_serializer), prepare: true
         INSERT INTO exekutor_jobs ("queue", "priority", "scheduled_at", "active_job_id", "payload", "options") VALUES ($1, $2, to_timestamp($3), $4, $5, $6)
       SQL
     end
@@ -59,14 +57,12 @@ module Exekutor
       end
 
       json_serializer = Exekutor.config.json_serializer_class
-      # TODO add extra Exekutor options (eg. ExpiresAt)
-      options = nil
 
       insert_statements = jobs.map do |job|
         raise ArgumentError "jobs must contain only ActiveJobs" unless job.is_a? ActiveJob::Base
 
         Exekutor::Job.sanitize_sql_for_assignment(
-          ["(?, ?, to_timestamp(?), ?, ?::jsonb, ?::jsonb)", *job_sql_binds(job, scheduled_at, options, json_serializer)]
+          ["(?, ?, to_timestamp(?), ?, ?::jsonb, ?::jsonb)", *job_sql_binds(job, scheduled_at, json_serializer)]
         )
       end
       Exekutor::Job.connection.insert <<~SQL, ACTION_NAME
@@ -75,15 +71,28 @@ module Exekutor
       SQL
     end
 
-    def job_sql_binds(job, scheduled_at, options, json_serializer)
+    def job_sql_binds(job, scheduled_at, json_serializer)
+      options = exekutor_options job
       [
         job.queue_name.presence || Exekutor.config.default_queue_name,
         job_priority(job),
         scheduled_at,
         job.job_id,
         json_serializer.dump(job.serialize),
-        options.nil? ? nil : json_serializer.dump(options)
+        options.present? ? json_serializer.dump(options) : nil
       ]
+    end
+
+    def exekutor_options(job)
+      return nil unless job.respond_to?(:exekutor_options)
+      options = job.exekutor_options.stringify_keys
+      if options && options['maximum_queue_duration']
+        options['start_execution_before'] = Time.now.to_f + options.delete('maximum_queue_duration').to_f
+      end
+      if options && options['execution_timeout']
+        options['execution_timeout'] = options.delete('execution_timeout').to_f
+      end
+      options
     end
 
     def job_priority(job)

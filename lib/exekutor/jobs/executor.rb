@@ -64,13 +64,26 @@ module Exekutor
           run_callbacks :before_execute, job
           start_time = Concurrent.monotonic_time
           begin
-            ActiveJob::Base.execute(job[:payload])
+            if job[:options] && job[:options]['start_execution_before'] &&
+              job[:options]['start_execution_before'].to_f <= Time.now.to_f
+              raise Exekutor::DiscardJob.new("Maximum queue time expired")
+            end
+            if job[:options] && job[:options]['execution_timeout'].present?
+              puts "tiomeout @#{job[:options]['execution_timeout']}"
+              Timeout::timeout job[:options]['execution_timeout'].to_f, Exekutor::DiscardJob do
+                puts "twst"
+                ActiveJob::Base.execute(job[:payload])
+              end
+            else
+              ActiveJob::Base.execute(job[:payload])
+            end
             update_job job, status: "c", runtime: Concurrent.monotonic_time - start_time
             run_callbacks :after_completion, job
-          rescue StandardError => ex
-            update_job job, status: "f", runtime: Concurrent.monotonic_time - start_time
-            JobError.create!(job_id: job[:id], error: ex)
-            run_callbacks :after_failure, job, ex
+          rescue StandardError => e
+            update_job job, status: e.is_a?(Exekutor::DiscardJob) ? "d" : "f",
+                       runtime: Concurrent.monotonic_time - start_time
+            JobError.create!(job_id: job[:id], error: e)
+            run_callbacks :after_failure, job, e
           end
           run_callbacks :after_execute, job
         end
