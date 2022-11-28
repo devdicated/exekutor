@@ -1,14 +1,15 @@
 
-# Ignore RubyMine project.
+# RubyMine project.
 /.idea
 
-# Ignore bundler config.
+# Bundler config.
 /.bundle
 
-## Gem files
+# Yard server
+/.yardoc
 
-# Brakeman
+# Brakeman output
 brakeman.html
 
-# Simplecov
+# Simplecov output
 /coverage

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 module Exekutor
-  module Jobs
+  # @private
+  module Internal
     class Reserver
       ACTION_NAME = "Exekutor::Reserve"
 

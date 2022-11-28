@@ -1,5 +1,7 @@
 # frozen_string_literal: true
+
 module Exekutor
+  # The job queue
   class Queue
     ACTION_NAME = "Exekutor::Enqueue"
 

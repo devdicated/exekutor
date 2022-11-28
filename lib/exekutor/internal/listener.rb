@@ -1,6 +1,10 @@
 # frozen_string_literal: true
+
+require_relative "executable"
+
 module Exekutor
-  module Jobs
+  # @private
+  module Internal
     class Listener
       include Executable
 
@@ -109,7 +113,7 @@ module Exekutor
 
         verify!(pg_conn)
         if @config[:set_connection_application_name]
-          Exekutor::Connection.set_application_name pg_conn, @config[:worker_id], :listener
+          Connection.set_application_name pg_conn, @config[:worker_id], :listener
         end
         yield pg_conn
       ensure

@@ -1,14 +1,17 @@
 # frozen_string_literal: true
-require 'exekutor/executable'
+
+require_relative "executable"
 
 module Exekutor
-  module Jobs
+  # @private
+  module Internal
     class Provider
       include Executable
 
       UNKNOWN = Object.new.freeze
 
-      def initialize(reserver:, executor:, pool:, polling_interval:, interval_jitter: polling_interval > 1 ? polling_interval * 0.1 : 0)
+      def initialize(reserver:, executor:, pool:, polling_interval:,
+                     interval_jitter: polling_interval > 1 ? polling_interval * 0.1 : 0)
         super()
         @reserver = reserver
         @executor = executor
@@ -156,7 +159,7 @@ module Exekutor
 
         max_interval = if polling_enabled?
                          @next_poll_at.update do |planned_at|
-                           planned_at || (Time.now + get_polling_interval)
+                           planned_at || (Time.now + polling_interval)
                          end.to_f - Time.now.to_f
                        else
                          60
@@ -170,16 +173,11 @@ module Exekutor
         end
       end
 
+      # @return [Boolean] Whether the `reserver` should be called.
       def reserve_jobs_now?
         next_poll_at = @next_poll_at.get
         if next_poll_at && next_poll_at < Time.now
-          @next_poll_at.update do
-            if polling_enabled?
-              Time.now + get_polling_interval
-            else
-              nil
-            end
-          end
+          @next_poll_at.update { polling_enabled? ? Time.now + polling_interval : nil }
           return true
         end
 
@@ -187,16 +185,16 @@ module Exekutor
         next_job_at == UNKNOWN || (next_job_at && next_job_at <= Time.now)
       end
 
-      def get_polling_interval
+      # Get the polling interval. If a jitter is configured, the interval is reduced or increased by `0.5 * jitter`.
+      # @return [Float] The amount of seconds before the next poll
+      def polling_interval
         raise "Polling is disabled" unless @polling_interval.present?
+
         @polling_interval + if @interval_jitter.zero?
                               0
                             else
                               (Kernel.rand - 0.5) * @interval_jitter
                             end
-      end
-
-      def jobs_pending?
       end
     end
   end

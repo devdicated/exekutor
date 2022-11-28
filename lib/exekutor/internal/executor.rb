@@ -1,6 +1,10 @@
 # frozen_string_literal: true
+
+require_relative "executable"
+
 module Exekutor
-  module Jobs
+  # @private
+  module Internal
     class Executor
       include Executable
 
@@ -8,7 +12,7 @@ module Exekutor
         super()
         max_threads = config[:max_threads] || default_max_threads
 
-        @executor = ThreadPoolExecutor.new name: 'exekutor-job',
+        @executor = ThreadPoolExecutor.new name: "exekutor-job",
                                            fallback_policy: :abort,
                                            min_threads: config[:min_threads] || 1,
                                            max_threads: max_threads,
@@ -64,13 +68,13 @@ module Exekutor
           run_callbacks :before_execute, job
           start_time = Concurrent.monotonic_time
           begin
-            if job[:options] && job[:options]['start_execution_before'] &&
-              job[:options]['start_execution_before'].to_f <= Time.now.to_f
+            if job[:options] && job[:options]["start_execution_before"] &&
+              job[:options]["start_execution_before"].to_f <= Time.now.to_f
               raise Exekutor::DiscardJob.new("Maximum queue time expired")
             end
-            if job[:options] && job[:options]['execution_timeout'].present?
+            if job[:options] && job[:options]["execution_timeout"].present?
               puts "tiomeout @#{job[:options]['execution_timeout']}"
-              Timeout::timeout job[:options]['execution_timeout'].to_f, Exekutor::DiscardJob do
+              Timeout::timeout job[:options]["execution_timeout"].to_f, Exekutor::DiscardJob do
                 puts "twst"
                 ActiveJob::Base.execute(job[:payload])
               end

@@ -16,3 +16,9 @@ gem "rainbow", "~> 3.1"
 gem "gli", "~> 2.21"
 
 gem "terminal-table", "~> 3.0"
+
+gem "brakeman", "~> 5.4"
+
+gem "yard", "~> 0.9.28"
+
+gem "simplecov", "~> 0.21.2"

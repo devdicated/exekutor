@@ -1,10 +1,19 @@
 # frozen_string_literal: true
-module Exekutor
-  class Worker
-    include Executable
 
+require_relative "internal/executable"
+
+module Exekutor
+  # The job worker
+  class Worker
+    include Internal::Executable
+
+    # Creates a new worker with the specified config and immediately starts it
+    # @param config [Hash] The worker configuration
+    # @option config [Array<String>] :queues The queues to work on
+    # TODO …
+    # @return The worker
     def self.start(config = {})
-      new(config).tap { |w| w.start }
+      new(config).tap(&:start)
     end
 
     def initialize(config = {})
@@ -12,13 +21,13 @@ module Exekutor
       @config = config
       @record = create_record!
 
-      @reserver = Jobs::Reserver.new @record.id, config[:queues]
-      @executor = Jobs::Executor.new config
+      @reserver = Internal::Reserver.new @record.id, config[:queues]
+      @executor = Internal::Executor.new config
 
       provider_pool = Concurrent::FixedThreadPool.new 2, name: "exekutor-provider", max_queue: 2
-      @provider = Jobs::Provider.new reserver: @reserver, executor: @executor, pool: provider_pool,
+      @provider = Internal::Provider.new reserver: @reserver, executor: @executor, pool: provider_pool,
                                      polling_interval: config[:polling_interval] || 60
-      listener = Jobs::Listener.new worker_id: @record.id, provider: @provider, pool: provider_pool,
+      listener = Internal::Listener.new worker_id: @record.id, provider: @provider, pool: provider_pool,
                                     queues: config[:queues],
                                     set_connection_application_name: config[:set_connection_application_name]
 
