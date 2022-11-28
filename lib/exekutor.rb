@@ -20,8 +20,14 @@ module Exekutor
     printf "\033[0m"
   end
 
+  # Base error class
   class Error < StandardError; end
-  class DiscardJob < Error; end
+
+  # Error that can be raised during jo execution causing the job to be discarded
+  class DiscardJob < Exception
+    # Use Exception as base class so it is less likely to be caught in Timeout::timeout blocks
+  end
+
 end
 
 require_relative "exekutor/configuration"

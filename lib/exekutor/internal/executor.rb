@@ -83,7 +83,7 @@ module Exekutor
             end
             update_job job, status: "c", runtime: Concurrent.monotonic_time - start_time
             run_callbacks :after_completion, job
-          rescue StandardError => e
+          rescue StandardError, Exekutor::DiscardJob => e
             update_job job, status: e.is_a?(Exekutor::DiscardJob) ? "d" : "f",
                        runtime: Concurrent.monotonic_time - start_time
             JobError.create!(job_id: job[:id], error: e)

@@ -1,68 +1,128 @@
 # frozen_string_literal: true
 
+require_relative "internal/configuration_builder"
 module Exekutor
   class Configuration
-    DEFAULT_QUEUE_NAME = "default"
-    DEFAULT_QUEUE_PRIORITY = 16_383
+    include Internal::ConfigurationBuilder
 
-    DEFAULT_VALUE = Object.new
+    # Valid range for job priority
+    # @private
+    VALID_PRIORITIES = 1..32_767
+    private_constant "VALID_PRIORITIES"
 
-    # TODO guard clauses for writers so we don't need to validate every read
-    # TODO implement #worker_options
+    # @private
+    DEFAULT_BASE_RECORD_CLASS = "ActiveRecord::Base"
+    private_constant "DEFAULT_BASE_RECORD_CLASS"
 
-    attr_accessor :job_base_class_name, :json_serializer, :logger, :default_queue_name, :default_queue_priority,
-                  :named_priorities
+    # @!method $1
+    #   Gets the default queue name to use when enqueueing jobs. (Default value: "default")
+    #   @return String
+    # @!method $1=(value)
+    #   Sets the default queue name to use when enqueueing jobs.
+    #   @param [String] value the queue name
+    define_option :default_queue_name, default: "default", nullable: false, allowed_types: String
 
-    def initialize
-      # Defaults
-      @job_base_class_name = "ActiveRecord::Base"
-      @json_serializer = JSON
-      @logger = DEFAULT_VALUE
-      @default_queue_name = DEFAULT_QUEUE_NAME
-      @default_queue_priority = DEFAULT_QUEUE_PRIORITY
-    end
+    # @!method $1
+    #   Gets the default queue priority to use when enqueueing jobs. (Default value: 16_383)
+    #   @return [Integer]
+    # @!method $1=(value)
+    #   Sets the default queue priority to use when enqueueing jobs. Should be between 1 and 32,767.
+    #   @param [Integer] value the queue priority
+    define_option :default_queue_priority, default: 16_383, nullable: false, allowed_types: Integer, range: VALID_PRIORITIES
 
-    def job_base_class
-      raise Error, "#job_base_class_name is not configured" if job_base_class_name.blank?
+    # @!method $1
+    #   Gets the name of the base class for database records. (Default value: "ActiveRecord::Base")
+    #   @return [String]
+    # @!method $1=(value)
+    #   Sets the name of the base class for database records.
+    #   @param [String] value the class name
+    define_option :base_record_class_name, default: DEFAULT_BASE_RECORD_CLASS, nullable: false, allowed_types: String
 
-      const_get :job_base_class_name, job_base_class_name
+    # Gets the class for the +BaseRecord+
+    # @return [Class]
+    def base_record_class
+      const_get :base_record_class_name, self.base_record_class_name
     rescue Error
       # A nicer message for the default value
-      if job_base_class_name == "ActiveRecord::Base"
+      if self.base_record_class_name == DEFAULT_BASE_RECORD_CLASS
         raise Error, "Cannot find ActiveRecord, did you install and load the gem?"
       else
         raise
       end
     end
 
-    def json_serializer_class
-      return @json_serializer_class[1] if @json_serializer_class && @json_serializer_class[0] == json_serializer
-      raise Error, "#json_serializer is not configured" if json_serializer.blank?
+    # TODO semantics
 
-      serializer = const_get :json_serializer, json_serializer
+    # @!method $1
+    #   Gets the raw value of the JSON serializer setting, this can be either a String or the serializer.
+    #   (Default value: +JSON+)
+    #   @return A String or a serializer responding to #dump and #load
+    # @!method $1=(value)
+    #   Sets the JSON serializer. This can be either a +String+, +Proc+, or the serializer, which must respond to #dump
+    #   and #load. If a +String+ or +Proc+ is given, the class will be loaded when $1 is called. If the loaded class
+    #   does not respond to #dump and #load a +Exekutor::Configuration::Error+ whenever the serializer is used for the
+    #   first time. If the value is neither a +String+ nor a +Proc+ and does not respond to #dump and #load, the error
+    #   will be thrown immediately.
+    #   @param value The serializer
+    define_option :json_serializer, default: JSON, nullable: false do |value|
+      unless value.is_a?(String) || value.respond_to?(:call) || (value.respond_to?(:dump) && value.respond_to?(:load))
+        raise Error, "#json_serializer must either be a string or respond to #dump and #load"
+      end
+    end
+
+    def json_serializer_instance
+      raw_value = self.json_serializer
+      return @json_serializer_class[1] if @json_serializer_class && @json_serializer_class[0] == raw_value
+
+      serializer = const_get :json_serializer, raw_value
+      unless serializer.respond_to?(:dump) && serializer.respond_to?(:load)
+        if serializer.respond_to?(:call)
+          serializer = serializer.call
+        elsif serializer.respond_to?(:new)
+          serializer = serializer.new
+        end
+      end
       unless serializer.respond_to?(:dump) && serializer.respond_to?(:load)
         raise Error, <<~MSG.squish
           The configured serializer (#{serializer.name}) does not respond to #dump and #load
         MSG
       end
 
-      @json_serializer_class = [json_serializer, serializer]
+      @json_serializer_class = [raw_value, serializer]
       serializer
+    end
+
+    # @!method $1
+    #   Gets the logger to use. (Default value: `Rails.logger`)
+    #   @return [ActiveSupport::Logger]
+    # @!method $1=(value)
+    #   Sets the logger to use
+    #   @param [ActiveSupport::Logger] value the logger
+    define_option :logger, default: -> { Rails.logger } # TODO better default
+
+    # @!method $1
+    #   Gets the named priorities. These will be used when enqueueing a job which has a symbol as priority value.
+    #   (Default value: none)
+    #   @return [Hash]
+    # @!method $1=(value)
+    #   Sets the named priorities
+    #   @param [Hash<Symbol, Integer>] value the priorities. Keys must be symbols and values must be valid priorities.
+    define_option :named_priorities, allowed_types: Hash do |value|
+      if (invalid_keys = value.keys.select { |k| !k.is_a? Symbol }).present?
+        class_names = invalid_keys.map(&:class).map(&:name).uniq
+        raise Error, "Invalid priority name type#{"s" if class_names.many?}: #{class_names.join(", ")}"
+      end
+      if (invalid_values = value.values.select { |v| !(v.is_a?(Integer) && (VALID_PRIORITIES).include?(v)) }).present?
+        raise Error, "Invalid priority value#{"s" if invalid_values.many?}: #{invalid_values.join(", ")}"
+      end
     end
 
     def priority_for_name(name)
       if named_priorities.blank?
         raise Error, "You have configured '#{name}' as a priority, but #named_priorities is not configured"
       end
-      raise Error, "#named_priorities must be a hash" unless named_priorities.is_a? Hash
-
-      priority = named_priorities[name]
-      raise Error, "#named_priorities does not contain a value for '#{name}'" if priority.nil?
-      unless priority.is_a? Integer
-        raise Error, "#named_priorities contains an invalid value for '#{name}' (#{priority.class})"
-      end
-
-      priority
+      raise Error, "#named_priorities does not contain a value for '#{name}'" unless named_priorities.include? name
+      named_priorities[name]
     end
 
     def verbose?
@@ -98,8 +158,14 @@ module Exekutor
       end
     end
 
+    # Error thrown for invalid configuration options
     class Error < StandardError; end
 
+    protected
+
+    def error_class
+      Error
+    end
   end
 
   def self.config

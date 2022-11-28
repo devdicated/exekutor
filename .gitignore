@@ -5,6 +5,9 @@
 # Bundler config.
 /.bundle
 
+# Documentation
+/doc
+
 # Yard server
 /.yardoc
 
