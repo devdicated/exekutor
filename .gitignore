@@ -1,8 +1,14 @@
-/.bundle/
-/.yardoc
-/_yardoc/
-/coverage/
-/doc/
-/pkg/
-/spec/reports/
-/tmp/
+
+# Ignore RubyMine project.
+/.idea
+
+# Ignore bundler config.
+/.bundle
+
+## Gem files
+
+# Brakeman
+brakeman.html
+
+# Simplecov
+/coverage
