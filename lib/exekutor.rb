@@ -30,11 +30,10 @@ module Exekutor
 
 end
 
-require_relative "exekutor/configuration"
-
 require_relative "exekutor/queue"
 require_relative "active_job/queue_adapters/exekutor_adapter"
 
+require_relative "exekutor/configuration"
 require_relative "exekutor/job_options"
 
 require_relative "exekutor/internal/connection"

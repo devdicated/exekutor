@@ -36,4 +36,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "gli", ">= 2"
   spec.add_dependency "rainbow", ">= 3.0"
   spec.add_dependency "terminal-table", ">= 3.0"
+
+  spec.add_development_dependency "yard"
+  spec.add_development_dependency "yard-activesupport-concern"
 end

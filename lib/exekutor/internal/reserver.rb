@@ -8,7 +8,7 @@ module Exekutor
       def initialize(worker_id, queues)
         @worker_id = worker_id
         @queue_filter_sql = build_queue_filter_sql(queues)
-        @json_serializer = Exekutor.config.json_serializer_class
+        @json_serializer = Exekutor.config.load_json_serializer
       end
 
       def reserve(limit)

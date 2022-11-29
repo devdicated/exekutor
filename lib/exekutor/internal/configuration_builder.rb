@@ -2,16 +2,23 @@
 
 module Exekutor
   module Internal
+    # DSL for the configuration
+    # @private
     module ConfigurationBuilder
-      DEFAULT_VALUE = Object.new.freeze
-
       extend ActiveSupport::Concern
+
+      # Indicates an unset value
+      # @private
+      DEFAULT_VALUE = Object.new.freeze
+      private_constant "DEFAULT_VALUE"
+
+      # Contains class methods to define on classes including this builder
       module ClassMethods
-        def define_option(name, nullable: true, allowed_types: nil, enum: nil, range: nil, default: DEFAULT_VALUE)
+        def define_option(name, required: false, allowed_types: nil, enum: nil, range: nil, default: DEFAULT_VALUE)
           define_method name do
-            if defined?(:"@#{name}")
-              instance_variable_get(:"@#{name}")
-            elsif default.respond_to?(:call)
+            if instance_variable_defined? :"@#{name}"
+              instance_variable_get :"@#{name}"
+            elsif default.respond_to? :call
               default.call
             else
               default
@@ -19,14 +26,14 @@ module Exekutor
           end
 
           define_method "#{name}=" do |value|
-            validate_option_presence! name, value unless nullable
+            validate_option_presence! name, value if required
             validate_option_type! name, value, *allowed_types if allowed_types.present?
             validate_option_enum! name, value, *enum if enum.present?
             validate_option_range! name, value, range if range.present?
-            if block_given?
-              yield value
-            end
+            yield value if block_given?
+
             instance_variable_set :"@#{name}", value
+            self
           end
         end
       end
@@ -50,10 +57,14 @@ module Exekutor
       def validate_option_range!(name, value, allowed_range)
         return if allowed_range.include?(value)
 
-        raise error_class, "##{name} should be between #{allowed_range.first} and #{allowed_range.last}#{" (exclusive)" if allowed_range.respond_to?(:exclude_end?) && allowed_range.exclude_end?}"
+        raise error_class, "##{name} should be between #{allowed_range.first} and #{allowed_range.last}#{
+          if allowed_range.respond_to?(:exclude_end?) && allowed_range.exclude_end?
+            " (exclusive)"
+          end}"
       end
 
       protected
+
       def error_class
         raise "Implementing class should override #error_class"
       end
