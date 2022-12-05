@@ -8,7 +8,7 @@
 # Documentation
 /doc
 
-# Yard server
+# Yard files
 /.yardoc
 
 # Brakeman output
