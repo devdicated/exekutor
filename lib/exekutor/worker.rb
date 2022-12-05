@@ -22,21 +22,31 @@ module Exekutor
       @record = create_record!
 
       @reserver = Internal::Reserver.new @record.id, config[:queues]
-      @executor = Internal::Executor.new config
+      @executor = Internal::Executor.new(**config.slice(:min_threads, :max_threads, :max_thread_idletime))
 
       provider_pool = Concurrent::FixedThreadPool.new 2, name: "exekutor-provider", max_queue: 2
       @provider = Internal::Provider.new reserver: @reserver, executor: @executor, pool: provider_pool,
-                                     polling_interval: config[:polling_interval] || 60
-      listener = Internal::Listener.new worker_id: @record.id, provider: @provider, pool: provider_pool,
-                                    queues: config[:queues],
-                                    set_connection_application_name: config[:set_connection_application_name]
+                                         polling_interval: config[:polling_interval] || 60
+      listener = if config.fetch(:enable_listener, true)
+                   Internal::Listener.new worker_id: @record.id, provider: @provider, pool: provider_pool,
+                                          queues: config[:queues],
+                                          set_connection_application_name: config[:set_connection_application_name]
+                 end
 
       @executor.after_execute(@record) do |_job, worker_info|
         worker_info.heartbeat!
         @provider.poll if @provider.running?
       end
+      @provider.on_queue_empty(@record) do |worker_info|
+        worker_info.heartbeat!
+        @executor.prune_pool
+      end
 
-      @executables = [@executor, @provider, listener]
+      @executables = [@executor, @provider, listener].compact.freeze
+
+      @callbacks = {
+        queue_empty: Concurrent::Array.new
+      }.freeze
     end
 
     def start
@@ -53,15 +63,7 @@ module Exekutor
 
       @executables.reverse_each(&:stop)
 
-      if @config[:wait_for_termination]
-        if @config[:wait_for_termination].zero?
-          @executor.kill
-        elsif @config[:wait_for_termination].positive?
-          @executor.kill unless @executor.wait_for_termination @config[:wait_for_termination]
-        else
-          @executor.wait_for_termination
-        end
-      end
+      wait_for_termination @config[:wait_for_termination] if @config[:wait_for_termination]
 
       @record.destroy
       @stop_event&.set
@@ -96,10 +98,19 @@ module Exekutor
 
     private
 
+    def wait_for_termination(timeout)
+      if timeout.is_a?(Numeric) && timeout.zero?
+        @executor.kill
+      elsif timeout.is_a?(Numeric) && timeout.positive?
+        @executor.kill unless @executor.wait_for_termination timeout
+      elsif timeout
+        @executor.wait_for_termination
+      end
+    end
+
     def create_record!
       info = {}
-      info.merge!(@config.slice(:identifier, :max_threads, :queues, :poll_interval))
-      puts "config: #{@config.inspect}, info: #{info.inspect}"
+      info.merge!(@config.slice(:identifier, :max_threads, :queues, :polling_interval))
       Info::Worker.create!({
                              hostname: Socket.gethostname,
                              pid: Process.pid,

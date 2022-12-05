@@ -1,12 +1,16 @@
 # frozen_string_literal: true
 
 require_relative "executable"
+require_relative "callbacks"
 
 module Exekutor
   # @private
   module Internal
     class Provider
       include Executable
+      include Callbacks
+
+      define_callbacks :on_queue_empty, freeze: true
 
       UNKNOWN = Object.new.freeze
 
@@ -141,7 +145,7 @@ module Exekutor
           # If we ran out of work, update the earliest scheduled at
           update_earliest_scheduled_at
 
-          # TODO worker.heartbeat!
+          run_callbacks :on_queue_empty if jobs.nil?
 
         elsif @next_job_scheduled_at.get == UNKNOWN
           # If the next job timestamp is still unknown, set it to now to indicate there's still work to do
@@ -153,6 +157,7 @@ module Exekutor
         @polling_interval.present?
       end
 
+      # @return [Numeric]
       def wait_timeout
         next_job_scheduled_at = @next_job_scheduled_at.get
         next_job_scheduled_at = nil if next_job_scheduled_at == UNKNOWN
@@ -169,6 +174,7 @@ module Exekutor
         elsif next_job_scheduled_at <= Time.now || max_interval <= 0.001
           0
         else
+          # noinspection RubyMismatchedReturnType
           [next_job_scheduled_at - Time.now, max_interval].min
         end
       end

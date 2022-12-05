@@ -1,26 +1,22 @@
 # frozen_string_literal: true
 
 require_relative "executable"
+require_relative "callbacks"
 
 module Exekutor
   # @private
   module Internal
     class Executor
       include Executable
+      include Callbacks
 
-      def initialize(config = {})
+      define_callbacks :before_execute, :after_execute, :after_completion, :after_failure, freeze: true
+
+      def initialize(min_threads: 1, max_threads: default_max_threads, max_thread_idletime: 60)
         super()
-        max_threads = config[:max_threads] || default_max_threads
-
-        @executor = ThreadPoolExecutor.new name: "exekutor-job",
-                                           fallback_policy: :abort,
-                                           min_threads: config[:min_threads] || 1,
-                                           max_threads: max_threads,
-                                           max_queue: max_threads
-        @callbacks = {
-          before_execute: Concurrent::Array.new,
-          after_execute: Concurrent::Array.new
-        }.freeze
+        @executor = ThreadPoolExecutor.new name: "exekutor-job", fallback_policy: :abort, max_queue: max_threads,
+                                           min_threads: min_threads, max_threads: max_threads,
+                                           idletime: max_thread_idletime
       end
 
       def start
@@ -38,14 +34,6 @@ module Exekutor
         @executor.kill
       end
 
-      def before_execute(*args, &callback)
-        @callbacks[:before_execute] << [callback, args]
-      end
-
-      def after_execute(*args, &callback)
-        @callbacks[:after_execute] << [callback, args]
-      end
-
       def post(job)
         @executor.post job, &method(:execute)
       rescue Concurrent::RejectedExecutionError
@@ -59,6 +47,10 @@ module Exekutor
         else
           0
         end
+      end
+
+      def prune_pool
+        @executor.prune_pool
       end
 
       private
@@ -95,21 +87,6 @@ module Exekutor
 
       def update_job(job, **attrs)
         Exekutor::Job.where(id: job[:id]).update_all(attrs)
-      end
-
-      def run_callbacks(type, job, *args)
-        callbacks = @callbacks[type]
-        callbacks&.each do |(callback, extra_args)|
-          begin
-            if callback.arity.positive?
-              callback.call(job, *args, *extra_args)
-            else
-              callback.call
-            end
-          rescue StandardError => err
-            Exekutor.print_error err, "[Executor] Callback error!"
-          end
-        end
       end
 
       def default_max_threads

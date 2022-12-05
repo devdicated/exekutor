@@ -7,27 +7,48 @@ module Exekutor
     module ConfigurationBuilder
       extend ActiveSupport::Concern
 
+      included do
+        class_attribute :__option_names, instance_writer: false, default: []
+      end
+
       # Indicates an unset value
       # @private
       DEFAULT_VALUE = Object.new.freeze
       private_constant "DEFAULT_VALUE"
 
+      # Sets option values in bulk
+      # @return [self]
+      def set(**options)
+        invalid_options = options.keys - __option_names
+        if invalid_options.present?
+          raise Error, "Invalid option#{"s" if invalid_options.many?}: #{invalid_options.map(&:inspect).join(", ")}"
+        end
+
+        options.each do |name, value|
+          send "#{name}=", value
+        end
+        self
+      end
+
       # Contains class methods to define on classes including this builder
       module ClassMethods
-        def define_option(name, required: false, allowed_types: nil, enum: nil, range: nil, default: DEFAULT_VALUE)
-          define_method name do
-            if instance_variable_defined? :"@#{name}"
-              instance_variable_get :"@#{name}"
-            elsif default.respond_to? :call
-              default.call
-            else
-              default
+        def define_option(name, required: false, type: nil, enum: nil, range: nil, default: DEFAULT_VALUE,
+                          reader: name)
+          __option_names << name
+          if reader
+            define_method reader do
+              if instance_variable_defined? :"@#{name}"
+                instance_variable_get :"@#{name}"
+              elsif default.respond_to? :call
+                default.call
+              else
+                default
+              end
             end
           end
-
           define_method "#{name}=" do |value|
             validate_option_presence! name, value if required
-            validate_option_type! name, value, *allowed_types if allowed_types.present?
+            validate_option_type! name, value, *type if type.present?
             validate_option_enum! name, value, *enum if enum.present?
             validate_option_range! name, value, range if range.present?
             yield value if block_given?

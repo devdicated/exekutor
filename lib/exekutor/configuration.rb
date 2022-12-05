@@ -23,7 +23,7 @@ module Exekutor
     #     @raise [Error] When the name is blank or too long
     #     @param value [String] the queue name
     #     @return [self]
-    define_option :default_queue_name, default: "default", required: true, allowed_types: String do |value|
+    define_option :default_queue_name, default: "default", required: true, type: String do |value|
       if value.length > Exekutor::Queue::MAX_NAME_LENGTH
         raise Error, "The queue name \"#{value}\" is too long, the limit is #{Exekutor::Queue::MAX_NAME_LENGTH} characters"
       end
@@ -41,7 +41,7 @@ module Exekutor
     #     @raise [Error] When the priority is nil or invalid
     #     @param value [Integer] the priority
     #     @return [self]
-    define_option :default_queue_priority, default: 16_383, required: true, allowed_types: Integer,
+    define_option :default_queue_priority, default: 16_383, required: true, type: Integer,
                   range: Exekutor::Queue::VALID_PRIORITIES
 
     # @!macro
@@ -56,7 +56,7 @@ module Exekutor
     #     @raise [Error] When the value contains invalid keys or values
     #     @param value [Hash<Symbol, Integer>,nil] the priorities
     #     @return [self]
-    define_option :named_priorities, allowed_types: Hash do |value|
+    define_option :named_priorities, type: Hash do |value|
       if (invalid_keys = value.keys.select { |k| !k.is_a? Symbol }).present?
         class_names = invalid_keys.map(&:class).map(&:name).uniq
         raise Error, "Invalid priority name type#{"s" if class_names.many?}: #{class_names.join(", ")}"
@@ -93,13 +93,12 @@ module Exekutor
     #     @param value [String] the class name
     #     @return [self]
     define_option :base_record_class_name, default: DEFAULT_BASE_RECORD_CLASS, required: true,
-                  allowed_types: String
+                  type: String
 
     # Gets the base class for database records. Is derived from the {#base_record_class_name} option.
     # @raise [Error] when the class cannot be found
     # @return [Class]
     def base_record_class
-      puts "base_record_class_name: #{base_record_class_name}"
       const_get :base_record_class_name
     rescue Error
       # A nicer message for the default value
@@ -170,6 +169,81 @@ module Exekutor
     #     @param value [ActiveSupport::Logger] the logger
     #     @return [self]
     define_option :logger, default: -> { Rails.logger } # TODO: better default
+
+    # @!macro
+    #   @!method $1?
+    #     Whether the DB connection name should be set.
+    #     === Default value:
+    #     false (true when started from the CLI)
+    #     @return [Boolean, nil]
+    #   @!method $1=(value)
+    #     Sets whether the DB connection name should be set
+    #     @param value [Boolean] whether to name should be set
+    #     @return [self]
+    define_option :set_connection_name, reader: :set_connection_name?, type: [TrueClass, FalseClass], required: true
+
+    # @!macro
+    #   @!method $1?
+    #     Whether the worker should use LISTEN/NOTIFY to listen for jobs.
+    #     === Default value:
+    #     true
+    #     @return [Boolean, nil]
+    #   @!method $1=(value)
+    #     Sets whether the worker should use LISTEN/NOTIFY to listen for jobs
+    #     @param value [Boolean] whether to enable the listener
+    #     @return [self]
+    define_option :enable_listener, reader: :enable_listener?, type: [TrueClass, FalseClass], required: true
+
+    # @!macro
+    #   @!method $1
+    #     The polling interval in seconds.
+    #     === Default value:
+    #     60
+    #     @return [Integer]
+    #   @!method $1=(value)
+    #     Sets the minimum number of execution threads that should be active
+    #     @param value [Integer] the interval
+    #     @return [self]
+    define_option :polling_interval, default: 60, type: [Integer, nil], range: 1...(1.day.to_i)
+
+    # @!macro
+    #   @!method $1
+    #     The polling jitter, used to adjust the polling interval slightly so multiple workers will not query the
+    #     database at the same time.
+    #     === Default value:
+    #     0.1
+    #     @return [Float]
+    #   @!method $1=(value)
+    #     Sets the polling jitter, which is used to slightly adjust the polling interval. Should be between 0 and 0.5.
+    #     A value of 0.1 means the polling interval can vary by 10%. If the interval is set to 60 seconds and the jitter
+    #     is set to 0.1, the interval can range from 57 to 63 seconds. A value of 0 disables this feature.
+    #     @param value [Float] the jitter
+    #     @return [self]
+    define_option :polling_jitter, default: 0.1, type: Float, range: 0..0.5
+
+    # @!macro
+    #   @!method $1
+    #     The minimum number of execution threads that should be active.
+    #     === Default value:
+    #     1
+    #     @return [Integer]
+    #   @!method $1=(value)
+    #     Sets the minimum number of execution threads that should be active
+    #     @param value [Integer] the number of threads
+    #     @return [self]
+    define_option :min_execution_threads, default: 1, type: Integer, range: 1...999
+
+    # @!macro
+    #   @!method $1
+    #     The maximum number of seconds a thread may be idle before being stopped.
+    #     === Default value:
+    #     60
+    #     @return [Integer]
+    #   @!method $1=(value)
+    #     Sets the maximum number of seconds a thread may be idle before being stopped
+    #     @param value [Integer] the number of threads
+    #     @return [self]
+    define_option :max_execution_thread_idletime, default: 60, type: Integer, range: 1..(1.day.to_i)
 
     def verbose?
       true
