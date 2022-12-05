@@ -26,6 +26,7 @@ module Exekutor
 
           load_application(options[:environment])
 
+          # TODO do we want to use Exekutor#config here or use it as fallback in the worker?
           configuration = Exekutor.config.worker_options
                                   .reverse_merge(set_connection_application_name: true)
                                   .merge(@global_options.slice(:identifier, :verbose, :quiet))
@@ -112,6 +113,11 @@ module Exekutor
           load_application(options[:environment])
 
           ActiveSupport.on_load(:active_record, yield: true) do
+            # Use system time zone
+            Time.zone = Time.new.zone
+
+            # TODO move code to somewhere else
+
             hosts = Exekutor::Info::Worker.distinct.pluck(:hostname)
             job_info = Exekutor::Job.pending.order(:queue).group(:queue).pluck(:queue, Arel.sql("COUNT(*)"), Arel.sql("MIN(scheduled_at)"))
 
@@ -236,13 +242,13 @@ module Exekutor
             if restarting
               puts "Restarting worker as a daemon…"
             else
-              stop_options = if @global_options[:pidfile].nil? || @global_options[:pidfile] == DEFAULT_PIDFILE
-                               "--id #{identifier} "
-                             elsif identifier
+              stop_options = if @global_options[:pidfile].present? && @global_options[:pidfile] != DEFAULT_PIDFILE
                                "--pid #{pidfile} "
+                             elsif identifier
+                               "--id #{identifier} "
                              end
 
-              puts "Running worker as a daemon… (Use `#{Rainbow("exekutor #{stop_options if stop_options}stop").indianred}` to stop)"
+              puts "Running worker as a daemon… (Use `#{Rainbow("exekutor #{stop_options}stop").indianred}` to stop)"
             end
           end
           daemonizer.daemonize
