@@ -1,5 +1,7 @@
 require "gli"
 require "rainbow"
+require_relative "cleanup"
+require_relative "info"
 require_relative "manager"
 
 module Exekutor
@@ -102,16 +104,61 @@ module Exekutor
           end
         end
 
-        desc "Prints Exekutor info"
+        desc "Prints worker and job info"
         long_desc <<~TEXT
           Prints info about workers and pending jobs.
         TEXT
         command :info do |c|
+          c.flag %i[env environment], desc: "The Rails environment."
+
           c.action do |global_options, options|
-            Manager.new(global_options).info(options)
+            Info.new(global_options).print(options)
+          end
+        end
+
+        desc "Cleans up workers and jobs"
+        long_desc <<~TEXT
+          Cleans up the finished jobs and stale workers
+        TEXT
+        command :cleanup do |c|
+          c.flag %i[env environment], desc: "The Rails environment."
+
+          c.flag %i[t timeout],
+                 desc: "The global timeout in hours. Workers and jobs before the timeout will be purged"
+          c.flag %i[worker_timeout],
+                 default_value: 4,
+                 desc: "The worker timeout in hours. Workers where the last heartbeat is before the timeout will be deleted."
+          c.flag %i[job_timeout],
+                 default_value: 48,
+                 desc: "The job timeout in hours. Jobs where scheduled at is before the timeout will be purged."
+          c.flag %i[s job_status],
+                 default_value: Cleanup::DEFAULT_STATUSES, multiple: true,
+                 desc: "The statuses to purge. Only jobs with this status will be purged."
+
+          c.default_command :all
+
+          c.desc "Cleans up both the workers and the jobs"
+          c.command(:all) do |ac|
+            ac.action do |global_options, options|
+              Cleanup.new(global_options).cleanup_workers(options.merge(print_header: true))
+              Cleanup.new(global_options).cleanup_jobs(options.merge(print_header: true))
+            end
+          end
+          c.desc "Cleans up the workers table"
+          c.command(:workers, :w) do |wc|
+            wc.action do |global_options, options|
+              Cleanup.new(global_options).cleanup_workers(options)
+            end
+          end
+          c.desc "Cleans up the jobs table"
+          c.command(:jobs, :j) do |jc|
+            jc.action do |global_options, options|
+              Cleanup.new(global_options).cleanup_jobs(options)
+            end
           end
         end
       end
+
     end
   end
 end
