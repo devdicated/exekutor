@@ -1,3 +1,4 @@
+require_relative "application_loader"
 require_relative "default_option_value"
 require_relative "daemon"
 
@@ -8,6 +9,7 @@ module Exekutor
       # Manager for the CLI
       # @private
       class Manager
+        include ApplicationLoader
 
         def initialize(options)
           @global_options = options
@@ -47,16 +49,16 @@ module Exekutor
 
               Process.setproctitle "Exekutor worker #{worker.id} [#{Rails.root}]"
               if configuration[:set_connection_application_name]
-                Exekutor::BaseRecord.connection.class.set_callback(:checkout, :after) do
+                Internal::BaseRecord.connection.class.set_callback(:checkout, :after) do
                   Internal::Connection.set_application_name raw_connection, worker.id
                 end
-                Exekutor::BaseRecord.connection_pool.connections.each do |conn|
+                Internal::BaseRecord.connection_pool.connections.each do |conn|
                   Internal::Connection.set_application_name conn.raw_connection, worker.id
                 end
               end
 
               ActiveSupport.on_load(:active_job, yield: true) do
-                puts "Worker #{worker.id} started (Use `#{Rainbow("ctrl + c").indianred}` to stop)" unless quiet?
+                puts "Worker #{worker.id} started (Use `#{Rainbow("ctrl + c").magenta}` to stop)" unless quiet?
                 begin
                   worker.start
                   worker.join
@@ -145,24 +147,19 @@ module Exekutor
             if restarting
               puts "Restarting worker as a daemon…"
             else
-              stop_options = if @global_options[:pidfile].present? && @global_options[:pidfile] != DEFAULT_PIDFILE
+              stop_options = if @global_options[:pidfile] && @global_options[:pidfile] != DEFAULT_PIDFILE
                                "--pid #{pidfile} "
                              elsif identifier
                                "--id #{identifier} "
                              end
 
-              puts "Running worker as a daemon… (Use `#{Rainbow("exekutor #{stop_options}stop").indianred}` to stop)"
+              puts "Running worker as a daemon… (Use `#{Rainbow("exekutor #{stop_options}stop").magenta}` to stop)"
             end
           end
           daemonizer.daemonize
         rescue Daemon::Error => e
           puts Rainbow(e.message).red
           raise GLI::CustomExit.new(nil, 1)
-        end
-
-        def load_application(environment, path = "config/environment.rb")
-          ENV["RAILS_ENV"] = environment unless environment.nil?
-          require File.expand_path(path)
         end
 
         class DefaultPidFileValue < DefaultOptionValue

@@ -1,3 +1,4 @@
+require_relative "application_loader"
 require "terminal-table"
 
 module Exekutor
@@ -7,17 +8,14 @@ module Exekutor
       # Prints info for the CLI
       # @private
       class Info
+        include ApplicationLoader
 
         def initialize(options)
           @global_options = options
         end
 
         def print(options)
-          loading_message = "Loading Rails environment…"
-          unless quiet?
-            printf loading_message
-          end
-          load_application(options[:environment])
+          load_application(options[:environment], print_message: !quiet?)
 
           ActiveSupport.on_load(:active_record, yield: true) do
             # Use system time zone
@@ -26,8 +24,7 @@ module Exekutor
             hosts = Exekutor::Info::Worker.distinct.pluck(:hostname)
             job_info = Exekutor::Job.pending.order(:queue).group(:queue).pluck(:queue, Arel.sql("COUNT(*)"), Arel.sql("MIN(scheduled_at)"))
 
-            # Clear loading message
-            printf "\r#{" " * loading_message.length}\r" unless quiet?
+            clear_application_loading_message unless quiet?
             puts Rainbow("Workers").bright.blue
             if hosts.present?
               total_workers = 0
@@ -121,10 +118,6 @@ module Exekutor
           !quiet? && !!@global_options[:verbose]
         end
 
-        def load_application(environment, path = "config/environment.rb")
-          ENV["RAILS_ENV"] = environment unless environment.nil?
-          require File.expand_path(path)
-        end
       end
     end
   end

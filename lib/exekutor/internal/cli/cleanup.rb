@@ -1,3 +1,4 @@
+require_relative "application_loader"
 require_relative "default_option_value"
 require "terminal-table"
 
@@ -8,21 +9,22 @@ module Exekutor
       # Cleanup for the CLI
       # @private
       class Cleanup
+        include ApplicationLoader
 
         def initialize(options)
           @global_options = options
-          @delegate = ::Exekutor::Cleanup.new
         end
 
         def cleanup_workers(options)
-          load_application options[:environment]
+          load_application options[:environment], print_message: !quiet?
 
           ActiveSupport.on_load(:active_record, yield: true) do
             # Use system time zone
             Time.zone = Time.new.zone
 
+            clear_application_loading_message unless quiet?
             timeout = options[:timeout] || options[:worker_timeout] || 4
-            workers = @delegate.cleanup_workers timeout.hours
+            workers = cleaner.cleanup_workers timeout: timeout.hours
             return if quiet?
 
             puts Rainbow("Workers").bright.blue if options[:print_header]
@@ -41,18 +43,20 @@ module Exekutor
         end
 
         def cleanup_jobs(options)
-          load_application options[:environment]
+          load_application options[:environment], print_message: !quiet?
+
           ActiveSupport.on_load(:active_record, yield: true) do
             # Use system time zone
             Time.zone = Time.new.zone
 
+            clear_application_loading_message unless quiet?
             timeout = options[:timeout] || options[:job_timeout] || 48
             status = if options[:job_status].is_a? Array
                        options[:job_status]
                      elsif options[:job_status] && options[:job_status] != DEFAULT_STATUSES
                        options[:job_status]
                      end
-            purged_count = @delegate.cleanup_jobs before: timeout.hours.ago, status: status
+            purged_count = cleaner.cleanup_jobs before: timeout.hours.ago, status: status
             return if quiet?
 
             puts Rainbow("Jobs").bright.blue if options[:print_header]
@@ -76,11 +80,8 @@ module Exekutor
           !quiet? && !!@global_options[:verbose]
         end
 
-        def load_application(environment, path = "config/environment.rb")
-          return if @loaded
-          ENV["RAILS_ENV"] = environment unless environment.nil?
-          require File.expand_path(path)
-          @loaded = true
+        def cleaner
+          @delegate ||= ::Exekutor::Cleanup.new
         end
 
         DEFAULT_STATUSES = DefaultOptionValue.new("All except :pending").freeze

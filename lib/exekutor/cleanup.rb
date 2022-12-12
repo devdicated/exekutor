@@ -35,7 +35,7 @@ module Exekutor
                        else
                          raise ArgumentError, "Unsupported value for before: #{before.class}"
                        end
-      unless [Array, String, Symbol].any?(&status.method(:is_a?))
+      unless [Array, String, Symbol, NilClass].any?(&status.method(:is_a?))
         raise ArgumentError, "Unsupported value for status: #{status.class}"
       end
 

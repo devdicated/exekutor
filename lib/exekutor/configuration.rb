@@ -195,6 +195,18 @@ module Exekutor
     define_option :enable_listener, reader: :enable_listener?, type: [TrueClass, FalseClass], required: true
 
     # @!macro
+    #   @!method $1?
+    #     Whether to suppress STDOUT messages
+    #     === Default value:
+    #     false
+    #     @return [Boolean]
+    #   @!method $1=(value)
+    #     Sets whether the STDOUT messages should be printed
+    #     @param value [Boolean] whether to suppress STDOUT messages
+    #     @return [self]
+    define_option :quiet, reader: :quiet?, type: [TrueClass, FalseClass], required: true, default: false
+
+    # @!macro
     #   @!method $1
     #     The polling interval in seconds.
     #     === Default value:
@@ -245,10 +257,6 @@ module Exekutor
     #     @return [self]
     define_option :max_execution_thread_idletime, default: 60, type: Integer, range: 1..(1.day.to_i)
 
-    def verbose?
-      true
-    end
-
     def worker_options
       {}
     end
@@ -291,5 +299,18 @@ module Exekutor
 
   def self.config
     @config ||= Exekutor::Configuration.new
+  end
+
+  def self.configure(opts = nil, &block)
+    raise ArgumentError, "opts must be a Hash" unless opts.nil? || opts.is_a?(Hash)
+    raise ArgumentError, "Either opts or a block must be given" unless opts.present? || block_given?
+    config.set **opts if opts
+    if block_given?
+      if block.arity == 1
+        block.call config
+      else
+        instance_eval &block
+      end
+    end
   end
 end

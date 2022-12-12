@@ -140,8 +140,10 @@ module Exekutor
           c.desc "Cleans up both the workers and the jobs"
           c.command(:all) do |ac|
             ac.action do |global_options, options|
-              Cleanup.new(global_options).cleanup_workers(options.merge(print_header: true))
-              Cleanup.new(global_options).cleanup_jobs(options.merge(print_header: true))
+              Cleanup.new(global_options).tap do |cleaner|
+                cleaner.cleanup_workers(options.merge(print_header: true))
+                cleaner.cleanup_jobs(options.merge(print_header: true))
+              end
             end
           end
           c.desc "Cleans up the workers table"

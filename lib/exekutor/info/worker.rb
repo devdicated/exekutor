@@ -1,7 +1,10 @@
 # frozen_string_literal: true
+
+require_relative "../internal/base_record"
+
 module Exekutor
   module Info
-    class Worker < BaseRecord
+    class Worker < Internal::BaseRecord
       self.implicit_order_column = :started_at
       enum status: { initializing: "i", running: "r", shutting_down: "s", crashed: "c" }
 

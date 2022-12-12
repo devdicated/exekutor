@@ -1,6 +1,9 @@
 # frozen_string_literal: true
+
+require_relative "internal/base_record"
+
 module Exekutor
-  class Job < BaseRecord
+  class Job < Internal::BaseRecord
     self.implicit_order_column = :enqueued_at
 
     belongs_to :job, optional: true

@@ -6,7 +6,7 @@ module Exekutor
   # @private
   module Internal
     class Listener
-      include Executable
+      include Executable, Logger
 
       JOB_ENQUEUED_CHANNEL = "exekutor::job_enqueued"
       PROVIDER_CHANNEL = "exekutor::worker::%s"
@@ -56,7 +56,6 @@ module Exekutor
       def run
         return unless running? && @thread_running.make_true
 
-        Exekutor.say "[Listener] Listening has started"
         with_pg_connection do |connection|
           begin
             connection.exec(%(LISTEN "#{provider_channel}"))
@@ -66,12 +65,11 @@ module Exekutor
             connection.exec("UNLISTEN *")
           end
         end
-        Exekutor.say "[Listener] Listening has ended"
       rescue StandardError => err
         Exekutor.print_error err, "[Listener] Runtime error!"
         # TODO crash if too many failures
         if running?
-          Exekutor.say "[Listener] Restarting in 10 seconds…"
+          logger.info "Restarting in 10 seconds…"
           Concurrent::ScheduledTask.execute(10.0, executor: @pool, &method(:run))
         end
       ensure
@@ -87,11 +85,11 @@ module Exekutor
             job_info = begin
                          payload.split(";").map { |el| el.split(":") }.to_h
                        rescue
-                         Exekutor.say! "[Listener] Invalid notification payload: #{payload}"
+                         logger.error "Invalid notification payload: #{payload}"
                          next
                        end
             unless %w[id q t].all? { |n| job_info[n].present? }
-              Exekutor.say! "[Listener] Notification payload is missing #{%w[id q t].select { |n| job_info[n].blank? }.join(", ")}"
+              logger.error "[Listener] Notification payload is missing #{%w[id q t].select { |n| job_info[n].blank? }.join(", ")}"
               next
             end
             next unless listening_to_queue? job_info["q"]

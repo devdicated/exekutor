@@ -7,8 +7,7 @@ module Exekutor
   # @private
   module Internal
     class Provider
-      include Executable
-      include Callbacks
+      include Executable, Callbacks, Logger
 
       define_callbacks :on_queue_empty, freeze: true
 
@@ -100,7 +99,6 @@ module Exekutor
       def run
         return unless running? && @thread_running.make_true
 
-        Exekutor.say "[Provider] Providing has started"
         catch(:shutdown) do
           while running? do
             wait_for_event
@@ -109,12 +107,11 @@ module Exekutor
             reserve_and_execute_jobs
           end
         end
-        Exekutor.say "[Provider] Providing has ended"
       rescue StandardError => err
         Exekutor.print_error err, "[Provider] Runtime error!"
         # TODO crash if too many failures
         if running?
-          Exekutor.say "[Provider] Restarting in 10 seconds…"
+          logger.info "Restarting in 10 seconds…"
           Concurrent::ScheduledTask.execute(10.0, executor: @pool, &method(:run))
         end
       ensure
@@ -134,14 +131,14 @@ module Exekutor
       end
 
       def reserve_and_execute_jobs
-        available_threads = @executor.available_threads
-        return unless available_threads.positive?
+        available_workers = @executor.available_workers
+        return unless available_workers.positive?
 
-        jobs = @reserver.reserve available_threads
-        Exekutor.say "[Provider] Reserved #{jobs.size.to_i} jobs" unless jobs.nil?
+        jobs = @reserver.reserve available_workers
+        logger.debug "Reserved #{jobs.size.to_i} jobs" unless jobs.nil?
         jobs&.each(&@executor.method(:post))
 
-        if jobs.nil? || jobs.size.to_i < available_threads
+        if jobs.nil? || jobs.size.to_i < available_workers
           # If we ran out of work, update the earliest scheduled at
           update_earliest_scheduled_at
 
@@ -169,7 +166,7 @@ module Exekutor
                        else
                          60
                        end
-        if next_job_scheduled_at.nil? || @executor.available_threads.zero?
+        if next_job_scheduled_at.nil? || @executor.available_workers.zero?
           max_interval
         elsif next_job_scheduled_at <= Time.now || max_interval <= 0.001
           0

@@ -58,7 +58,7 @@ module Exekutor
         def validate!
           case self.status
           when :running, :not_owned
-            raise Error, "A server is already running. Check #{pidfile}"
+            raise Error, "A worker is already running. Check #{pidfile}"
           else
             delete_pid
           end

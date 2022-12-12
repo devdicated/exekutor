@@ -7,8 +7,7 @@ module Exekutor
   # @private
   module Internal
     class Executor
-      include Executable
-      include Callbacks
+      include Executable, Callbacks, Logger
 
       define_callbacks :before_execute, :after_execute, :after_completion, :after_failure, freeze: true
 
@@ -37,13 +36,13 @@ module Exekutor
       def post(job)
         @executor.post job, &method(:execute)
       rescue Concurrent::RejectedExecutionError
-        Exekutor.say "Ran out of threads! Releasing job #{job[:id]}"
+        logger.error "Ran out of threads! Releasing job #{job[:id]}"
         update_job job, status: "p", worker_id: nil
       end
 
-      def available_threads
+      def available_workers
         if @executor.running?
-          @executor.ready_worker_count
+          @executor.available_threads
         else
           0
         end
@@ -65,9 +64,7 @@ module Exekutor
               raise Exekutor::DiscardJob.new("Maximum queue time expired")
             end
             if job[:options] && job[:options]["execution_timeout"].present?
-              puts "tiomeout @#{job[:options]['execution_timeout']}"
               Timeout::timeout job[:options]["execution_timeout"].to_f, Exekutor::DiscardJob do
-                puts "twst"
                 ActiveJob::Base.execute(job[:payload])
               end
             else
@@ -79,6 +76,7 @@ module Exekutor
             update_job job, status: e.is_a?(Exekutor::DiscardJob) ? "d" : "f",
                        runtime: Concurrent.monotonic_time - start_time
             JobError.create!(job_id: job[:id], error: e)
+            log_error e, "Job failed" unless e.is_a?(Exekutor::DiscardJob)
             run_callbacks :after_failure, job, e
           end
           run_callbacks :after_execute, job
@@ -102,7 +100,7 @@ module Exekutor
         # Number of inactive threads available to execute tasks.
         # https://github.com/ruby-concurrency/concurrent-ruby/issues/684#issuecomment-427594437
         # @return [Integer]
-        def ready_worker_count
+        def available_threads
           synchronize do
             if Concurrent.on_jruby?
               @executor.getMaximumPoolSize - @executor.getActiveCount
