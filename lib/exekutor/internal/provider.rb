@@ -142,7 +142,7 @@ module Exekutor
           # If we ran out of work, update the earliest scheduled at
           update_earliest_scheduled_at
 
-          run_callbacks :on_queue_empty if jobs.nil?
+          run_callbacks :on, :queue_empty if jobs.nil?
 
         elsif @next_job_scheduled_at.get == UNKNOWN
           # If the next job timestamp is still unknown, set it to now to indicate there's still work to do

@@ -56,10 +56,11 @@ module Exekutor
       end
 
       json_serializer = Exekutor.config.load_json_serializer
-
-      Exekutor::Job.connection.exec_query <<~SQL, ACTION_NAME, job_sql_binds(job, scheduled_at, json_serializer), prepare: true
-        INSERT INTO exekutor_jobs ("queue", "priority", "scheduled_at", "active_job_id", "payload", "options") VALUES ($1, $2, to_timestamp($3), $4, $5, $6) RETURNING id;
-      SQL
+      Internal::Hooks.run :enqueue, job do
+        Exekutor::Job.connection.exec_query <<~SQL, ACTION_NAME, job_sql_binds(job, scheduled_at, json_serializer), prepare: true
+          INSERT INTO exekutor_jobs ("queue", "priority", "scheduled_at", "active_job_id", "payload", "options") VALUES ($1, $2, to_timestamp($3), $4, $5, $6) RETURNING id;
+        SQL
+      end
     end
 
     # Creates {Exekutor::Job} records for the specified jobs, scheduled at the indicated time

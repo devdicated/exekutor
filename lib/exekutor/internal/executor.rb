@@ -9,7 +9,7 @@ module Exekutor
     class Executor
       include Executable, Callbacks, Logger
 
-      define_callbacks :before_execute, :after_execute, :after_completion, :after_failure, freeze: true
+      define_callbacks :after_execute, freeze: true
 
       def initialize(min_threads: 1, max_threads: default_max_threads, max_thread_idletime: 60)
         super()
@@ -56,30 +56,32 @@ module Exekutor
 
       def execute(job)
         Rails.application.reloader.wrap do
-          run_callbacks :before_execute, job
-          start_time = Concurrent.monotonic_time
-          begin
-            if job[:options] && job[:options]["start_execution_before"] &&
-              job[:options]["start_execution_before"].to_f <= Time.now.to_f
-              raise Exekutor::DiscardJob.new("Maximum queue time expired")
-            end
-            if job[:options] && job[:options]["execution_timeout"].present?
-              Timeout::timeout job[:options]["execution_timeout"].to_f, Exekutor::DiscardJob do
+          Internal::Hooks.run :job_execution, job do
+            start_time = Concurrent.monotonic_time
+            begin
+              if job[:options] && job[:options]["start_execution_before"] &&
+                job[:options]["start_execution_before"].to_f <= Time.now.to_f
+                raise Exekutor::DiscardJob.new("Maximum queue time expired")
+              end
+              if job[:options] && job[:options]["execution_timeout"].present?
+                Timeout::timeout job[:options]["execution_timeout"].to_f, Exekutor::DiscardJob do
+                  ActiveJob::Base.execute(job[:payload])
+                end
+              else
                 ActiveJob::Base.execute(job[:payload])
               end
-            else
-              ActiveJob::Base.execute(job[:payload])
+              update_job job, status: "c", runtime: Concurrent.monotonic_time - start_time
+            rescue StandardError, Exekutor::DiscardJob => e
+              update_job job, status: e.is_a?(Exekutor::DiscardJob) ? "d" : "f",
+                         runtime: Concurrent.monotonic_time - start_time
+              JobError.create!(job_id: job[:id], error: e)
+              unless e.is_a?(Exekutor::DiscardJob)
+                log_error e, "Job failed"
+                Internal::Hooks.on(:job_failure, job, e)
+              end
             end
-            update_job job, status: "c", runtime: Concurrent.monotonic_time - start_time
-            run_callbacks :after_completion, job
-          rescue StandardError, Exekutor::DiscardJob => e
-            update_job job, status: e.is_a?(Exekutor::DiscardJob) ? "d" : "f",
-                       runtime: Concurrent.monotonic_time - start_time
-            JobError.create!(job_id: job[:id], error: e)
-            log_error e, "Job failed" unless e.is_a?(Exekutor::DiscardJob)
-            run_callbacks :after_failure, job, e
+            run_callbacks :after, :execute, job
           end
-          run_callbacks :after_execute, job
         end
       end
 

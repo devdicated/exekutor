@@ -51,22 +51,25 @@ module Exekutor
 
     def start
       return false unless compare_and_set_state(:pending, :started)
-
-      @executables.each(&:start)
-      @record.update(status: "r")
+      Internal::Hooks.run :startup, self do
+        @executables.each(&:start)
+        @record.update(status: "r")
+      end
       true
     end
 
     def stop
-      set_state :stopped
-      @record.update(status: "s") unless @record.destroyed?
+      Internal::Hooks.run :shutdown, self do
+        set_state :stopped
+        @record.update(status: "s") unless @record.destroyed?
 
-      @executables.reverse_each(&:stop)
+        @executables.reverse_each(&:stop)
 
-      wait_for_termination @config[:wait_for_termination] if @config[:wait_for_termination]
+        wait_for_termination @config[:wait_for_termination] if @config[:wait_for_termination]
 
-      @record.destroy
-      @stop_event&.set
+        @record.destroy
+        @stop_event&.set
+      end
       true
     end
 

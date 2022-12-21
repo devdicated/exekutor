@@ -30,10 +30,12 @@ require_relative "exekutor/internal/executor"
 require_relative "exekutor/internal/reserver"
 require_relative "exekutor/internal/provider"
 require_relative "exekutor/internal/listener"
+require_relative "exekutor/internal/hooks"
 
 require_relative "exekutor/asynchronous"
 require_relative "exekutor/cleanup"
 require_relative "exekutor/worker"
+require_relative "exekutor/hooks"
 
 Exekutor.private_constant "Internal"
 ActiveSupport.run_load_hooks(:exekutor, Exekutor)
