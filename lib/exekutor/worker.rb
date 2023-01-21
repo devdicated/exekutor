@@ -34,18 +34,30 @@ module Exekutor
       @reserver = Internal::Reserver.new @record.id, config[:queues]
       @executor = Internal::Executor.new(**config.slice(:min_threads, :max_threads, :max_thread_idletime))
 
-      provider_threads = config.fetch(:enable_listener, true) ? 2 : 1
+      provider_threads = 1
+      provider_threads += 1 if config.fetch(:enable_listener, true)
+      provider_threads += 1 if config[:healthcheck_port].to_i > 0
+
       provider_pool = Concurrent::FixedThreadPool.new provider_threads, max_queue: provider_threads,
                                                       name: "exekutor-provider"
 
       @provider = Internal::Provider.new reserver: @reserver, executor: @executor, pool: provider_pool,
                                          **config.slice(:polling_interval, :polling_jitter)
                                                  .transform_keys(polling_jitter: :interval_jitter)
-      listener = if config.fetch(:enable_listener, true)
-                   Internal::Listener.new worker_id: @record.id, provider: @provider, pool: provider_pool,
+      @executables = [@executor, @provider]
+      if config.fetch(:enable_listener, true)
+        listener = Internal::Listener.new worker_id: @record.id, provider: @provider, pool: provider_pool,
                                           queues: config[:queues],
                                           set_db_connection_name: config[:set_db_connection_name]
-                 end
+        @executables << listener
+      end
+      if config[:healthcheck_port].to_i > 0
+        server = HealthcheckServer.new worker: self, pool: provider_pool, port: config[:healthcheck_port],
+                                       **config.slice(:healthcheck_handler)
+                                               .transform_keys(healthcheck_handler: :handler)
+        @executables << server
+      end
+      @executables.freeze
 
       @executor.after_execute(@record) do |_job, worker_info|
         worker_info.heartbeat!
@@ -55,12 +67,6 @@ module Exekutor
         worker_info.heartbeat!
         @executor.prune_pool
       end
-
-      @executables = [@executor, @provider, listener].compact.freeze
-
-      @callbacks = {
-        queue_empty: Concurrent::Array.new
-      }.freeze
     end
 
     # Starts the worker. Does nothing if the worker has already started.
@@ -121,6 +127,10 @@ module Exekutor
     # The worker ID.
     def id
       @record.id
+    end
+
+    def last_heartbeat
+      @record.last_heartbeat_at
     end
 
     private

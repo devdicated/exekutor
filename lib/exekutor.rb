@@ -16,6 +16,7 @@ end
 require_relative "exekutor/queue"
 require_relative "active_job/queue_adapters/exekutor_adapter"
 
+require_relative "exekutor/plugins"
 require_relative "exekutor/configuration"
 require_relative "exekutor/job_options"
 
@@ -34,8 +35,9 @@ require_relative "exekutor/internal/hooks"
 
 require_relative "exekutor/asynchronous"
 require_relative "exekutor/cleanup"
-require_relative "exekutor/worker"
+require_relative "exekutor/healthcheck_server"
 require_relative "exekutor/hook"
+require_relative "exekutor/worker"
 
 Exekutor.private_constant "Internal"
 ActiveSupport.run_load_hooks(:exekutor, Exekutor)

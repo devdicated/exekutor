@@ -29,10 +29,9 @@ module Exekutor
                 ORDER BY priority, scheduled_at, enqueued_at
                 FOR UPDATE SKIP LOCKED
                 LIMIT $2
-          ) RETURNING "id", "payload", "options"
+          ) RETURNING "id", "payload", "options", "scheduled_at"
         SQL
         if results&.length&.positive?
-          # TODO log job count?
           parse_jobs(*results)
         end
       end
@@ -52,7 +51,8 @@ module Exekutor
         sql_results.map do |result|
           { id: result["id"],
             payload: parse_json(result["payload"]),
-            options: parse_json(result["options"]) }
+            options: parse_json(result["options"]),
+            scheduled_at: result['scheduled_at'] }
         end
       end
 
