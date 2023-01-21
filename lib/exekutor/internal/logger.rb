@@ -38,7 +38,7 @@ module Exekutor
     puts(*args) unless config.quiet?
   end
 
-  # Prints the error in the log and to STDOUT (unless {Exekutor::Configuration#quiet?} is true)
+  # Prints the error in the log and to STDERR (unless {Exekutor::Configuration#quiet?} is true)
   # @param err [Exception] the error to print
   # @param message [String] the message to print above the error
   # @return [void]
@@ -47,12 +47,13 @@ module Exekutor
     error = "#{err.class} – #{err.message}\nat #{@backtrace_cleaner.clean(err.backtrace).join("\n   ")}"
 
     unless config.quiet?
-      puts Rainbow(message).bright.red if message
-      puts Rainbow(error).red
+      STDERR.puts Rainbow(message).bright.red if message
+      STDERR.puts Rainbow(error).red
     end
-
-    logger.fatal message if message
-    logger.fatal error
+    unless ActiveSupport::Logger.logger_outputs_to?(logger, STDOUT)
+      logger.fatal message if message
+      logger.fatal error
+    end
   end
 
   # Gets the logger

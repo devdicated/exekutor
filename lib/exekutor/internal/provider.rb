@@ -6,14 +6,23 @@ require_relative "callbacks"
 module Exekutor
   # @private
   module Internal
+    # Reserves jobs and provides them to an executor
     class Provider
       include Executable, Callbacks, Logger
 
       define_callbacks :on_queue_empty, freeze: true
 
+      # Represents an unknown value
       UNKNOWN = Object.new.freeze
+      private_constant "UNKNOWN"
 
-      def initialize(reserver:, executor:, pool:, polling_interval:,
+      # Creates a new provider
+      # @param reserver [Reserver] the job reserver
+      # @param executor [Executor] the job executor
+      # @param pool [ThreadPoolExecutor] the thread pool to use
+      # @param polling_interval [Integer] the polling interval
+      # @param interval_jitter [Float] the polling interval jitter
+      def initialize(reserver:, executor:, pool:, polling_interval: 60,
                      interval_jitter: polling_interval > 1 ? polling_interval * 0.1 : 0)
         super()
         @reserver = reserver
@@ -30,6 +39,7 @@ module Exekutor
         @next_poll_at = Concurrent::AtomicReference.new nil
       end
 
+      # Starts the provider.
       def start
         return false unless compare_and_set_state :pending, :started
 
@@ -39,11 +49,13 @@ module Exekutor
         true
       end
 
+      # Stops the provider
       def stop
         set_state :stopped
         @event.set
       end
 
+      # Makes the provider poll for jobs
       def poll
         raise Exekutor::Error, "Provider is not running" unless running?
 
@@ -51,6 +63,11 @@ module Exekutor
         @event.set
       end
 
+      # Updates the timestamp for when the next job is scheduled. Gets the earliest scheduled_at from the DB if no
+      # argument is given. Updates the timestamp for the earliest job is a timestamp is given and that timestamp is
+      # before the known timestamp. Does nothing if a timestamp is given and the earliest job timestamp is not known.
+      # @param scheduled_at [Time,Numeric] the time a job is scheduled at
+      # @return [Time] the timestamp for the next job, or +nil+ if the timestamp is unknown or no jobs are pending
       def update_earliest_scheduled_at(scheduled_at = UNKNOWN)
         overwrite_unknown = false
         case scheduled_at
@@ -92,12 +109,16 @@ module Exekutor
 
       private
 
+      # Starts the provision thread
       def start_thread
         @pool.post(&method(:run)) if running?
       end
 
+      # Waits for the next job scheduling time or the polling interval and reserves jobs
       def run
         return unless running? && @thread_running.make_true
+
+        # TODO check for ghost jobs
 
         catch(:shutdown) do
           while running? do
@@ -108,7 +129,7 @@ module Exekutor
           end
         end
       rescue StandardError => err
-        Exekutor.print_error err, "[Provider] Runtime error!"
+        Exekutor.on_fatal_error err, "[Provider] Runtime error!"
         # TODO crash if too many failures
         if running?
           logger.info "Restarting in 10 seconds…"
@@ -118,26 +139,40 @@ module Exekutor
         @thread_running.make_false
       end
 
+      # Waits for any event to happen. An event could be:
+      # - The listener was notified of a new job;
+      # - The next job is scheduled for the current time;
+      # - The polling interval;
+      # - A call to {#poll}
       def wait_for_event
         timeout = wait_timeout
         return unless timeout.positive?
 
         @event.wait timeout
       rescue StandardError => err
-        Exekutor.print_error err, "[Provider] An error occurred while waiting"
+        Exekutor.on_fatal_error err, "[Provider] An error occurred while waiting"
       ensure
         throw :shutdown unless running?
         @event.reset
       end
 
+      # Reserves jobs and posts them to the executor
       def reserve_and_execute_jobs
         available_workers = @executor.available_workers
         return unless available_workers.positive?
 
         jobs = @reserver.reserve available_workers
-        logger.debug "Reserved #{jobs.size.to_i} jobs" unless jobs.nil?
-        jobs&.each(&@executor.method(:post))
-
+        unless jobs.nil?
+          begin
+            logger.debug "Reserved #{jobs.size.to_i} jobs"
+            jobs.each(&@executor.method(:post))
+          rescue Exception
+            # Try to release all jobs before re-raising
+            Exekutor::Job.where(id: jobs.collect { |job| job[:id] }, status: "e")
+                         .update_all(status: "p", worker_id: nil) rescue nil
+            raise
+          end
+        end
         if jobs.nil? || jobs.size.to_i < available_workers
           # If we ran out of work, update the earliest scheduled at
           update_earliest_scheduled_at
@@ -150,11 +185,12 @@ module Exekutor
         end
       end
 
+      # @return [Boolean] Whether the polling is enabled. Ie. whether a polling interval is set.
       def polling_enabled?
         @polling_interval.present?
       end
 
-      # @return [Numeric]
+      # @return [Numeric] The timeout to wait until the next event
       def wait_timeout
         next_job_scheduled_at = @next_job_scheduled_at.get
         next_job_scheduled_at = nil if next_job_scheduled_at == UNKNOWN

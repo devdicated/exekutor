@@ -28,27 +28,62 @@ module Exekutor
 
           load_application(options[:environment])
 
-          # TODO do we want to use Exekutor#config here or use it as fallback in the worker?
-          configuration = Exekutor.config.worker_options
-                                  .reverse_merge(set_connection_application_name: true)
-                                  .merge(@global_options.slice(:identifier, :verbose, :quiet))
-                                  .merge(options.slice(:queue, :max_threads, :poll_interval)
-                                                .reject { |_, value| value.is_a? DefaultOptionValue })
+          config_files = if options[:configfile].is_a? DefaultConfigFileValue
+                           options[:configfile].to_a(@global_options[:identifier])
+                         else
+                           options[:configfile]&.map { |path| File.expand_path(path, Rails.root) }
+                         end
 
-          configuration[:queue] = nil if configuration[:queue] == ["*"]
+          worker_options = DEFAULT_CONFIGURATION.dup
+
+          config_files&.each do |path|
+            puts "Loading config file: #{path}" if verbose?
+            config = begin
+                       YAML.safe_load(File.read(path), symbolize_names: true)
+                     rescue => e
+                       raise Error, "Cannot read config file: #{path} (#{e.to_s})"
+                     end
+            unless config.keys == [:exekutor]
+              raise Error, "Config should have an `exekutor` root node: #{path} (Found: #{config.keys.join(', ')})"
+            end
+
+            # Remove worker specific options before calling Exekutor.config.set
+            worker_options.merge! config[:exekutor].extract!(:queue)
+
+            begin
+              Exekutor.config.set **config[:exekutor]
+            rescue => e
+              raise Error, "Cannot load config file: #{path} (#{e.to_s})"
+            end
+          end
+
+          worker_options.merge! Exekutor.config.worker_options
+          worker_options.merge! @global_options.slice(:identifier)
+          if verbose?
+            worker_options[:verbose] = true
+          elsif quiet?
+            worker_options[:quiet] = true
+          end
+          worker_options.merge!(
+            options.slice(:queue, :max_threads, :poll_interval)
+                   .reject { |_, value| value.is_a? DefaultOptionValue }
+                   .transform_keys(poll_interval: :polling_interval)
+          )
+
+          worker_options[:queue] = nil if worker_options[:queue] == ["*"]
 
           # TODO health check server
 
           # Specify `yield: true` to prevent running in the context of the loaded module
           ActiveSupport.on_load(:exekutor, yield: true) do
             ActiveSupport.on_load(:active_record, yield: true) do
-              worker = Worker.new(configuration)
+              worker = Worker.new(worker_options)
               %w[INT TERM QUIT].each do |signal|
                 ::Kernel.trap(signal) { ::Thread.new { worker.stop } }
               end
 
               Process.setproctitle "Exekutor worker #{worker.id} [#{Rails.root}]"
-              if configuration[:set_connection_application_name]
+              if worker_options[:set_db_connection_name]
                 Internal::BaseRecord.connection.class.set_callback(:checkout, :after) do
                   Internal::Connection.set_application_name raw_connection, worker.id
                 end
@@ -59,6 +94,7 @@ module Exekutor
 
               ActiveSupport.on_load(:active_job, yield: true) do
                 puts "Worker #{worker.id} started (Use `#{Rainbow("ctrl + c").magenta}` to stop)" unless quiet?
+                puts "#{worker_options.pretty_inspect}" if verbose?
                 begin
                   worker.start
                   worker.join
@@ -176,11 +212,33 @@ module Exekutor
           end
         end
 
+        class DefaultConfigFileValue < DefaultOptionValue
+          def initialize
+            super('"config/exekutor.yml", overridden by "config/exekutor.%{identifier}.yml" if an identifier is specified')
+          end
+
+          def to_a(identifier = nil)
+            files = []
+            files << %w[config/exekutor.yml config/exekutor.yaml]
+                       .lazy.map { |path| Rails.root.join(path) }
+                       .find { |path| File.exists? path }
+            if identifier.present?
+              files << %W[config/exekutor.#{identifier}.yml config/exekutor.#{identifier}.yaml]
+                         .lazy.map { |path| Rails.root.join(path) }
+                         .find { |path| File.exists? path }
+            end
+            files.compact
+          end
+        end
+
         DEFAULT_PIDFILE = DefaultPidFileValue.new.freeze
+        DEFAULT_CONFIG_FILES = DefaultConfigFileValue.new.freeze
 
         DEFAULT_MAX_THREADS = DefaultOptionValue.new("Active record pool size minus 1, with a minimum of 1").freeze
         DEFAULT_QUEUE = DefaultOptionValue.new("All queues").freeze
         DEFAULT_FOREVER = DefaultOptionValue.new("Forever").freeze
+
+        DEFAULT_CONFIGURATION = { set_db_connection_name: true }
 
         class Error < StandardError; end
       end

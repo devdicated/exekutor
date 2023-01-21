@@ -15,6 +15,8 @@ module Exekutor
           @global_options = options
         end
 
+        # Cleans up the workers table
+        # @see Exekutor::Cleanup
         def cleanup_workers(options)
           load_application options[:environment], print_message: !quiet?
 
@@ -42,6 +44,8 @@ module Exekutor
           end
         end
 
+        # Cleans up the jobs table
+        # @see Exekutor::Cleanup
         def cleanup_jobs(options)
           load_application options[:environment], print_message: !quiet?
 

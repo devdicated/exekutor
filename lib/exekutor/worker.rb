@@ -8,14 +8,24 @@ module Exekutor
     include Internal::Executable
 
     # Creates a new worker with the specified config and immediately starts it
-    # @param config [Hash] The worker configuration
-    # @option config [Array<String>] :queues The queues to work on
-    # TODO …
+    # @see #initialize
+    #
     # @return The worker
     def self.start(config = {})
       new(config).tap(&:start)
     end
 
+    # Creates a new worker with the specified config
+    # @param config [Hash] The worker configuration
+    # @option config [String] :identifier the identifier for this worker
+    # @option config [Array<String>] :queues the queues to work on
+    # @option config [Integer] :min_threads the minimum number of execution threads that should be active
+    # @option config [Integer] :max_threads the maximum number of execution threads that may be active
+    # @option config [Integer] :max_thread_idletime the maximum number of seconds a thread may be idle before being stopped
+    # @option config [Integer] :polling_interval the polling interval in seconds
+    # @option config [Float] :poling_jitter the polling jitter
+    # @option config [Boolean] :set_db_connection_name whether the DB connection name should be set
+    # @option config [Integer,Boolean] :wait_for_termination how long the worker should wait on jobs to be completed before exiting
     def initialize(config = {})
       super()
       @config = config
@@ -24,13 +34,17 @@ module Exekutor
       @reserver = Internal::Reserver.new @record.id, config[:queues]
       @executor = Internal::Executor.new(**config.slice(:min_threads, :max_threads, :max_thread_idletime))
 
-      provider_pool = Concurrent::FixedThreadPool.new 2, name: "exekutor-provider", max_queue: 2
+      provider_threads = config.fetch(:enable_listener, true) ? 2 : 1
+      provider_pool = Concurrent::FixedThreadPool.new provider_threads, max_queue: provider_threads,
+                                                      name: "exekutor-provider"
+
       @provider = Internal::Provider.new reserver: @reserver, executor: @executor, pool: provider_pool,
-                                         polling_interval: config[:polling_interval] || 60
+                                         **config.slice(:polling_interval, :polling_jitter)
+                                                 .transform_keys(polling_jitter: :interval_jitter)
       listener = if config.fetch(:enable_listener, true)
                    Internal::Listener.new worker_id: @record.id, provider: @provider, pool: provider_pool,
                                           queues: config[:queues],
-                                          set_connection_application_name: config[:set_connection_application_name]
+                                          set_db_connection_name: config[:set_db_connection_name]
                  end
 
       @executor.after_execute(@record) do |_job, worker_info|
@@ -49,6 +63,8 @@ module Exekutor
       }.freeze
     end
 
+    # Starts the worker. Does nothing if the worker has already started.
+    # @return [Boolean] whether the worker was started
     def start
       return false unless compare_and_set_state(:pending, :started)
       Internal::Hooks.run :startup, self do
@@ -58,6 +74,9 @@ module Exekutor
       true
     end
 
+    # Stops the worker. If +wait_for_termination+ is set, this method blocks until the execution thread is terminated
+    # or killed.
+    # @return true
     def stop
       Internal::Hooks.run :shutdown, self do
         set_state :stopped
@@ -73,6 +92,8 @@ module Exekutor
       true
     end
 
+    # Kills the worker. Does not wait for any jobs to be completed.
+    # @return true
     def kill
       Thread.new do
         @executables.reverse_each(&:stop)
@@ -83,6 +104,7 @@ module Exekutor
       true
     end
 
+    # Blocks until the worker is stopped.
     def join
       @stop_event = Concurrent::Event.new
       Kernel.loop do
@@ -91,16 +113,23 @@ module Exekutor
       end
     end
 
+    # Reserves and executes jobs.
     def reserve_jobs
       @provider.poll
     end
 
+    # The worker ID.
     def id
       @record.id
     end
 
     private
 
+    # Waits for the execution threads to finish. Does nothing if +timeout+ is falsey. If +timeout+ is zero, the
+    # execution threads are killed immediately. If +timeout+ is a positive +Numeric+, waits for the indicated amount of
+    # seconds to let the execution threads finish and kills the threads if the timeout is exceeded. Otherwise; waits
+    # for the execution threads to finish indefinitely.
+    # @param timeout The time to wait.
     def wait_for_termination(timeout)
       if timeout.is_a?(Numeric) && timeout.zero?
         @executor.kill
@@ -111,6 +140,7 @@ module Exekutor
       end
     end
 
+    # Creates the active record entry for this worker.
     def create_record!
       info = {}
       info.merge!(@config.slice(:identifier, :max_threads, :queues, :polling_interval))

@@ -7,9 +7,9 @@ module Exekutor
   # Base error class
   class Error < StandardError; end
 
-  # Error that can be raised during jo execution causing the job to be discarded
+  # Error that can be raised during job execution causing the job to be discarded
   class DiscardJob < Exception
-    # Use Exception as base class so it is less likely to be caught in Timeout::timeout blocks
+    # Use Exception as base class so it is less likely to be caught in rescue blocks
   end
 end
 
@@ -35,7 +35,7 @@ require_relative "exekutor/internal/hooks"
 require_relative "exekutor/asynchronous"
 require_relative "exekutor/cleanup"
 require_relative "exekutor/worker"
-require_relative "exekutor/hooks"
+require_relative "exekutor/hook"
 
 Exekutor.private_constant "Internal"
 ActiveSupport.run_load_hooks(:exekutor, Exekutor)

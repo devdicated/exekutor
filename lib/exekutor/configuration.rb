@@ -168,11 +168,11 @@ module Exekutor
     #     Sets the logger.
     #     @param value [ActiveSupport::Logger] the logger
     #     @return [self]
-    define_option :logger, default: -> { Rails.logger } # TODO: better default
+    define_option :logger, default: -> { Rails.logger } # TODO: better default?
 
     # @!macro
     #   @!method $1?
-    #     Whether the DB connection name should be set.
+    #     Whether the DB connection name should be set. Only affects the listener, unless started from the CLI.
     #     === Default value:
     #     false (true when started from the CLI)
     #     @return [Boolean, nil]
@@ -180,7 +180,15 @@ module Exekutor
     #     Sets whether the DB connection name should be set
     #     @param value [Boolean] whether to name should be set
     #     @return [self]
-    define_option :set_connection_name, reader: :set_connection_name?, type: [TrueClass, FalseClass], required: true
+    define_option :set_db_connection_name, type: [TrueClass, FalseClass], required: true
+
+    def set_db_connection_name?
+      if set_db_connection_name.nil?
+        false
+      else
+        set_db_connection_name
+      end
+    end
 
     # @!macro
     #   @!method $1?
@@ -192,28 +200,19 @@ module Exekutor
     #     Sets whether the worker should use LISTEN/NOTIFY to listen for jobs
     #     @param value [Boolean] whether to enable the listener
     #     @return [self]
-    define_option :enable_listener, reader: :enable_listener?, type: [TrueClass, FalseClass], required: true
-
-    # @!macro
-    #   @!method $1?
-    #     Whether to suppress STDOUT messages
-    #     === Default value:
-    #     false
-    #     @return [Boolean]
-    #   @!method $1=(value)
-    #     Sets whether the STDOUT messages should be printed
-    #     @param value [Boolean] whether to suppress STDOUT messages
-    #     @return [self]
-    define_option :quiet, reader: :quiet?, type: [TrueClass, FalseClass], required: true, default: false
+    define_option :enable_listener, reader: :enable_listener?, default: true, type: [TrueClass, FalseClass], required: true
 
     # @!macro
     #   @!method $1
-    #     The polling interval in seconds.
+    #     The polling interval in seconds. When set, the worker will poll the database with this interval to check for
+    #     any pending jobs that a listener might have missed (if enabled).
     #     === Default value:
     #     60
     #     @return [Integer]
     #   @!method $1=(value)
-    #     Sets the minimum number of execution threads that should be active
+    #     Sets the polling interval in seconds. Set to +nil+ to disable polling. If the listener is disabled, this value
+    #     should be reasonably low so jobs don't have to wait in the queue too long; if it is enabled, this value can
+    #     be reasonably high.
     #     @param value [Integer] the interval
     #     @return [self]
     define_option :polling_interval, default: 60, type: [Integer, nil], range: 1...(1.day.to_i)
@@ -231,7 +230,7 @@ module Exekutor
     #     is set to 0.1, the interval can range from 57 to 63 seconds. A value of 0 disables this feature.
     #     @param value [Float] the jitter
     #     @return [self]
-    define_option :polling_jitter, default: 0.1, type: Float, range: 0..0.5
+    define_option :polling_jitter, default: 0.1, type: [Float, Integer], range: 0..0.5
 
     # @!macro
     #   @!method $1
@@ -247,6 +246,23 @@ module Exekutor
 
     # @!macro
     #   @!method $1
+    #     The maximum number of execution threads that may be active.
+    #     === Default value:
+    #     Active record pool size minus 1, with a minimum of 1
+    #     @return [Integer]
+    #   @!method $1=(value)
+    #     Sets the maximum number of execution threads that may be active. Be aware that if you set this to a value
+    #     greater than +connection_db_config.pool+, workers may have to wait for database connections to be available
+    #     because all connections are occupied by other workers. This may result in a
+    #     +ActiveRecord::ConnectionTimeoutError+ if the worker has to wait too long.
+    #     @param value [Integer] the number of threads
+    #     @return [self]
+    define_option :max_execution_threads,
+                  default: -> { (Exekutor::Job.connection_db_config.pool.to_i - 1).clamp(1, 999) },
+                  type: Integer, range: 1...999
+
+    # @!macro
+    #   @!method $1
     #     The maximum number of seconds a thread may be idle before being stopped.
     #     === Default value:
     #     60
@@ -257,8 +273,31 @@ module Exekutor
     #     @return [self]
     define_option :max_execution_thread_idletime, default: 60, type: Integer, range: 1..(1.day.to_i)
 
+    # @!macro
+    #   @!method $1?
+    #     Whether to suppress STDOUT messages
+    #     === Default value:
+    #     false
+    #     @return [Boolean]
+    #   @!method $1=(value)
+    #     Sets whether the STDOUT messages should be printed
+    #     @param value [Boolean] whether to suppress STDOUT messages
+    #     @return [self]
+    define_option :quiet, reader: :quiet?, type: [TrueClass, FalseClass], required: true, default: false
+
+    # Gets the options for a worker
+    # @return [Hash] the worker configuration
     def worker_options
-      {}
+      {}.tap do |opts|
+        opts[:min_threads] = min_execution_threads
+        opts[:max_threads] = max_execution_threads
+        opts[:max_thread_idletime] = max_execution_thread_idletime
+        opts[:set_db_connection_name] = set_db_connection_name? unless set_db_connection_name.nil?
+        opts[:enable_listener] = !!enable_listener?
+        %i(polling_interval polling_jitter).each do |option|
+          opts[option] = send(option)
+        end
+      end
     end
 
     private
@@ -287,8 +326,8 @@ module Exekutor
       end
     end
 
-    # Error thrown for invalid configuration options
-    class Error < StandardError; end
+    # Raised when configuring an invalid option or value
+    class Error < Exekutor::Error; end
 
     protected
 

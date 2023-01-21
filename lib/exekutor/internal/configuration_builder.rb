@@ -30,8 +30,15 @@ module Exekutor
         self
       end
 
-      # Contains class methods to define on classes including this builder
       module ClassMethods
+        # Defines a configuration option with the given name.
+        # @param name [Symbol] the name of the option
+        # @param required [Boolean] whether a value is required. If +true+, any +nil+ or +blank?+ value will not be allowed.
+        # @param type [Array<Class>] the allowed value types. If set the value must be an instance of any of the given classes.
+        # @param enum [Array<Any>] the allowed values. If set the value must be one of the given values.
+        # @param range [Range] the allowed value range. If set the value must be included in this range.
+        # @param default [Any] the default value
+        # @param reader [Symbol] the name of the reader method
         def define_option(name, required: false, type: nil, enum: nil, range: nil, default: DEFAULT_VALUE,
                           reader: name)
           __option_names << name
@@ -41,7 +48,7 @@ module Exekutor
                 instance_variable_get :"@#{name}"
               elsif default.respond_to? :call
                 default.call
-              else
+              elsif default != DEFAULT_VALUE
                 default
               end
             end
@@ -59,22 +66,32 @@ module Exekutor
         end
       end
 
+      # Validates whether the option is present for configuration values that are required
+      # raise [StandardError] if the value is nil or blank
       def validate_option_presence!(name, value)
-        raise error_class, "##{name} cannot be #{value.nil? ? "nil" : "blank"}" unless value.present?
+        unless value.present? || value.is_a?(FalseClass)
+          raise error_class, "##{name} cannot be #{value.nil? ? "nil" : "blank"}"
+        end
       end
 
+      # Validates whether the value class is allowed
+      # @raise [StandardError] if the type of value is not allowed
       def validate_option_type!(name, value, *allowed_types)
         return if allowed_types.include?(value.class)
 
         raise error_class, "##{name} should be an instance of #{allowed_types.to_sentence(last_word_connector: ', or ')} (Actual: #{value.class})"
       end
 
+      # Validates whether the value is a valid enum option
+      # @raise [StandardError] if the value is not included in the allowed values
       def validate_option_enum!(name, value, *allowed_values)
         return if allowed_values.include?(value)
 
         raise error_class, "##{name} should be one of #{allowed_values.map(&:inspect).to_sentence(last_word_connector: ', or ')}"
       end
 
+      # Validates whether the value falls in the allowed range
+      # @raise [StandardError] if the value is not included in the allowed range
       def validate_option_range!(name, value, allowed_range)
         return if allowed_range.include?(value)
 
@@ -86,6 +103,8 @@ module Exekutor
 
       protected
 
+      # The error class to raise when an invalid option value is set
+      # @return [StandardError]
       def error_class
         raise "Implementing class should override #error_class"
       end

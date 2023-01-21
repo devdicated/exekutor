@@ -2,15 +2,23 @@
 module Exekutor
   # @private
   module Internal
+    # Reserves jobs to be executed by the current worker
     class Reserver
+      # The name to use for the SQL log message
       ACTION_NAME = "Exekutor::Reserve"
 
+      # Creates a new Reserver
+      # @param worker_id [String] the id of the worker
+      # @param queues [Array<String>] the queues to watch
       def initialize(worker_id, queues)
         @worker_id = worker_id
         @queue_filter_sql = build_queue_filter_sql(queues)
         @json_serializer = Exekutor.config.load_json_serializer
       end
 
+      # Reserves pending jobs
+      # @param limit [Integer] the number of jobs to reserve
+      # @return [Array<Job>,nil] the reserved jobs, or nil if no jobs were reserved
       def reserve(limit)
         return unless limit.positive?
 
@@ -29,6 +37,8 @@ module Exekutor
         end
       end
 
+      # Gets the earliest scheduled at of all pending jobs in the watched queues
+      # @return [Time,nil] The earliest scheduled at, or nil if the queues are empty
       def earliest_scheduled_at
         jobs = Exekutor::Job.pending
         jobs.where! @queue_filter_sql unless @queue_filter_sql.nil?
@@ -37,6 +47,7 @@ module Exekutor
 
       private
 
+      # Parses jobs from the SQL results
       def parse_jobs(*sql_results)
         sql_results.map do |result|
           { id: result["id"],
@@ -45,10 +56,12 @@ module Exekutor
         end
       end
 
+      # Parses JSON using the configured serializer
       def parse_json(str)
         @json_serializer.load str unless str.nil?
       end
 
+      # Builds SQL filter for the given queues
       def build_queue_filter_sql(queues)
         if queues.nil?
           nil

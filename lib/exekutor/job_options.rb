@@ -22,7 +22,7 @@ module Exekutor
   # You can also specify options that apply to all instances of a job by calling {#exekutor_options}.
   #  class MyOtherJob < ActiveJob::Base
   #     include Exekutor::JobOptions
-  #     exekutor_options execution_timeout: 1.second
+  #     exekutor_options execution_timeout: 10.seconds
   #   end
   #
   # *NB* These options only work for jobs that are scheduled with +#perform_later+, the options are ignored when you

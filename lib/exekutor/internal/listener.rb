@@ -5,19 +5,29 @@ require_relative "executable"
 module Exekutor
   # @private
   module Internal
+    # Listens for jobs to be executed
     class Listener
       include Executable, Logger
 
+      # The PG notification channel for enqueued jobs
       JOB_ENQUEUED_CHANNEL = "exekutor::job_enqueued"
+      # The PG notification channel for a worker. Must be formatted with the worker ID.
       PROVIDER_CHANNEL = "exekutor::worker::%s"
 
-      def initialize(worker_id:, queues:, provider:, pool:, wait_timeout: 60, set_connection_application_name: false)
+      # Creates a new listener
+      # @param worker_id [String] the ID of the worker
+      # @param queues [Array<String>] the queues to watch
+      # @param provider [Provider] the job provider
+      # @param pool [ThreadPoolExecutor] the thread pool to use
+      # @param wait_timeout [Integer] the time to listen for notifications
+      # @param set_db_connection_name [Boolean] whether to set the application name on the DB connection
+      def initialize(worker_id:, queues:, provider:, pool:, wait_timeout: 60, set_db_connection_name: false)
         super()
         @config = {
           worker_id: worker_id,
           queues: queues || [],
           wait_timeout: wait_timeout,
-          set_connection_application_name: set_connection_application_name
+          set_db_connection_name: set_db_connection_name
         }
 
         @provider = provider
@@ -26,6 +36,7 @@ module Exekutor
         @thread_running = Concurrent::AtomicBoolean.new false
       end
 
+      # Starts the listener
       def start
         return false unless compare_and_set_state :pending, :started
 
@@ -33,6 +44,7 @@ module Exekutor
         true
       end
 
+      # Stops the listener
       def stop
         set_state :stopped
         Exekutor::Job.connection.execute(%(NOTIFY "#{provider_channel}"))
@@ -40,19 +52,24 @@ module Exekutor
 
       private
 
+      # The PG notification channel for a worker
       def provider_channel
         PROVIDER_CHANNEL % @config[:worker_id]
       end
 
+      # Whether this listener is listening to the given queue
+      # @return [Boolean]
       def listening_to_queue?(queue)
         queues = @config[:queues]
         queues.nil? || queues.empty? || queues.include?(queue)
       end
 
+      # Starts the listener thread
       def start_thread
         @pool.post(&method(:run)) if running?
       end
 
+      # Sets up the PG notifications and listens for new jobs
       def run
         return unless running? && @thread_running.make_true
 
@@ -66,7 +83,7 @@ module Exekutor
           end
         end
       rescue StandardError => err
-        Exekutor.print_error err, "[Listener] Runtime error!"
+        Exekutor.on_fatal_error err, "[Listener] Runtime error!"
         # TODO crash if too many failures
         if running?
           logger.info "Restarting in 10 seconds…"
@@ -76,6 +93,7 @@ module Exekutor
         @thread_running.make_false
       end
 
+      # Listens for jobs. Blocks until the listener is stopped
       def wait_for_jobs(connection)
         while running?
           connection.wait_for_notify(@config[:wait_timeout]) do |channel, _pid, payload|
@@ -100,7 +118,11 @@ module Exekutor
         end
       end
 
-      # Grabbed from PG adapter for action cable
+      # Gets a DB connection and removes it from the pool. Sets the application name if +set_db_connection_name+ is true.
+      # Closes the connection after yielding it to the given block.
+      # (Grabbed from PG adapter for action cable)
+      # @yield yields the connection
+      # @yieldparam connection [PG::Connection] the DB connection
       def with_pg_connection # :nodoc:
         ar_conn = Exekutor::Job.connection_pool.checkout.tap do |conn|
           # Action Cable is taking ownership over this database connection, and
@@ -110,7 +132,7 @@ module Exekutor
         pg_conn = ar_conn.raw_connection
 
         verify!(pg_conn)
-        if @config[:set_connection_application_name]
+        if @config[:set_db_connection_name]
           Connection.set_application_name pg_conn, @config[:worker_id], :listener
         end
         yield pg_conn
@@ -118,6 +140,8 @@ module Exekutor
         ar_conn.disconnect!
       end
 
+      # Verifies the connection
+      # @raise [Error] if the connection is not an instance of +PG::Connection+ or is invalid.
       def verify!(pg_conn)
         unless pg_conn.is_a?(PG::Connection)
           raise Error, "The Active Record database must be PostgreSQL in order to use the listener"
@@ -125,7 +149,8 @@ module Exekutor
         #   TODO check connection status
       end
 
-      class Error < StandardError; end
+      # Raised when an error occurs in the listener.
+      class Error < Exekutor::Error; end
     end
   end
 end

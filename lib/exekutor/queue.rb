@@ -159,6 +159,6 @@ module Exekutor
     end
 
     # Default error for queueing problems
-    class Error < StandardError; end
+    class Error < Exekutor::Error; end
   end
 end

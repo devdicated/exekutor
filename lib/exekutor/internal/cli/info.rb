@@ -14,6 +14,7 @@ module Exekutor
           @global_options = options
         end
 
+        # Prints Exekutor info to STDOUT
         def print(options)
           load_application(options[:environment], print_message: !quiet?)
 
@@ -22,7 +23,8 @@ module Exekutor
             Time.zone = Time.new.zone
 
             hosts = Exekutor::Info::Worker.distinct.pluck(:hostname)
-            job_info = Exekutor::Job.pending.order(:queue).group(:queue).pluck(:queue, Arel.sql("COUNT(*)"), Arel.sql("MIN(scheduled_at)"))
+            job_info = Exekutor::Job.pending.order(:queue).group(:queue)
+                                    .pluck(:queue, Arel.sql("COUNT(*)"), Arel.sql("MIN(scheduled_at)"))
 
             clear_application_loading_message unless quiet?
             puts Rainbow("Workers").bright.blue

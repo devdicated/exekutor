@@ -1,5 +1,20 @@
 module Exekutor
   # Mixin to let methods be executed asynchronously by active job
+  #
+  # @example Mark methods as asynchronous
+  #    class MyClass
+  #      include Exekutor::Asynchronous
+  #
+  #      def instance_method
+  #        puts "This will be performed by an Exekutor worker"
+  #      end
+  #      perform_asynchronously :instance_method
+  #
+  #      def self.class_method(str)
+  #        puts "This will also be performed by an Exekutor worker: #{str}"
+  #      end
+  #      perform_asynchronously :class_method, class_method: true
+  #    end
   module Asynchronous
     extend ActiveSupport::Concern
 
@@ -9,8 +24,16 @@ module Exekutor
     end
 
     module ClassMethods
-      # Changes a method to be executed asynchronously
-      # @param method_name [Symbol]
+      # Changes a method to be executed asynchronously.
+      # Be aware that you can no longer use the return value for
+      # asynchronous methods, because the actual method will be performed by a worker at a later time. The new
+      # implementation of the method will always return an instance of {AsyncMethodJob}.
+      # If the method takes parameters they must be serializable by active job, otherwise an
+      # +ActiveJob::SerializationError+ will be raised.
+      # @param method_name [Symbol] the method to be executed asynchronous
+      # @param alias_to [String] specifies the new name for the synchronous method
+      # @param class_method [Boolean] whether the method is a class method.
+      # @raise [Error] if the method could not be replaced with the asynchronous version
       def perform_asynchronously(method_name, alias_to: "__immediately_#{method_name}", class_method: false)
         raise Error, "method_name must be a Symbol (actual: #{method_name.class.name})" unless method_name.is_a? Symbol
         raise Error, "alias_to must be present" unless alias_to.present?
@@ -107,10 +130,13 @@ module Exekutor
       end
     end
 
-    # The internal job used for {Exekutor::Asynchronous}. Only works for objects which have included the
-    # {Exekutor::Asynchronous} module and methods that are marked as asynchronous to prevent remote code execution.
+    # The internal job used for {Exekutor::Asynchronous}. Only works for methods that are marked as asynchronous to
+    # prevent remote code execution. Include the {Exekutor::Asynchronous} and call
+    # {Exekutor::Asynchronous#perform_asynchronously} to mark a method as asynchronous.
     class AsyncMethodJob < ActiveJob::Base
 
+      # Calls the original, synchronous method
+      # @!visibility private
       def perform(object, method, *args, **kwargs)
         check_object! object
         method_alias = check_method! object, method
@@ -121,13 +147,13 @@ module Exekutor
 
       def check_object!(object)
         if object.nil?
-          raise Exekutor::Error, "Object cannot be nil"
+          raise Error, "Object cannot be nil"
         elsif object.is_a? Class
           unless object.included_modules.include? Asynchronous
-            raise Exekutor::Error, "Object has not included Exekutor::Asynchronous"
+            raise Error, "Object has not included Exekutor::Asynchronous"
           end
         else
-          raise Exekutor::Error, "Object has not included Exekutor::Asynchronous" unless object.is_a? Asynchronous
+          raise Error, "Object has not included Exekutor::Asynchronous" unless object.is_a? Asynchronous
         end
       end
 
@@ -140,13 +166,16 @@ module Exekutor
           definitions = object.class.__async_instance_methods
         end
         unless object.respond_to? method, true
-          raise Exekutor::Error, "#{class_name} does not respond to #{method}"
+          raise Error, "#{class_name} does not respond to #{method}"
         end
         unless definitions.include? method.to_sym
-          raise Exekutor::Error, "#{class_name}##{method} is not marked as asynchronous"
+          raise Error, "#{class_name}##{method} is not marked as asynchronous"
         end
         definitions[method.to_sym]
       end
     end
+
+    # Raised when an error occurs while configuring or executing asynchronous methods
+    class Error < Exekutor::Error; end
   end
 end

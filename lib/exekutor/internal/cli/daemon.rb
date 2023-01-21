@@ -24,6 +24,9 @@ module Exekutor
           write_pid
         end
 
+        # The process ID for this daemon, if known
+        # @return [Integer,nil] The process ID
+        # @raise [Error] if the pid-file is corrupt
         def pid
           return nil unless ::File.exist? pidfile
 
@@ -35,7 +38,12 @@ module Exekutor
           end
         end
 
-        # @return [:running, :not_running, :dead, :not_owned]
+        # The process status for this daemon. Possible states are:
+        # - +:running+ when the daemon is running;
+        # - +:not_running+ when the daemon is not running;
+        # - +:dead+ when the daemon is dead. (Ie. the PID is known, but the process is gone);
+        # - +:not_owned+ when the daemon cannot be accessed.
+        # @return [:running, :not_running, :dead, :not_owned] the status
         def status
           pid = self.pid
           return :not_running if pid.nil?
@@ -50,11 +58,17 @@ module Exekutor
           :not_owned
         end
 
+        # Checks whether {#status} matches any of the given statuses.
+        # @param statuses [Symbol...] The statuses to check for.
+        # @return [Boolean] whether the status matches
+        # @see #status
         def status?(*statuses)
           statuses.include? self.status
         end
 
+        # Raises an {Error} if a daemon is already running. Deletes the pidfile is the process is dead.
         # @return [void]
+        # @raise [Error] when the daemon is running
         def validate!
           case self.status
           when :running, :not_owned
@@ -67,7 +81,10 @@ module Exekutor
 
         private
 
+        # Writes the current process ID to the pidfile. The pidfile will be deleted upon exit.
         # @return [void]
+        # @see #pidfile
+        # @raise [Error] is the daemon is already running
         def write_pid
           File.open(pidfile, ::File::CREAT | ::File::EXCL | ::File::WRONLY) { |f| f.write(::Process.pid.to_s) }
           at_exit { delete_pid }
@@ -76,11 +93,14 @@ module Exekutor
           retry
         end
 
+        # Deletes the pidfile
         # @return [void]
+        # @see #pidfile
         def delete_pid
           File.delete(pidfile) if File.exist?(pidfile)
         end
 
+        # Raised when spawning a daemon process fails
         class Error < StandardError; end
       end
     end
