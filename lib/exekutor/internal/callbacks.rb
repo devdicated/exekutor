@@ -16,7 +16,7 @@ module Exekutor
     #        run_callbacks :another_event, self
     #      end
     #    end
-    #    MyClass.on_event(12) {|str, int| puts "event happened: #{str}, #{int}" }
+    #    MyClass.new.on_event(12) {|str, int| puts "event happened: #{str}, #{int}" }
     module Callbacks
       extend ActiveSupport::Concern
 

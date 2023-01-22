@@ -85,10 +85,10 @@ module Exekutor
               Process.setproctitle "Exekutor worker #{worker.id} [#{Rails.root}]"
               if worker_options[:set_db_connection_name]
                 Internal::BaseRecord.connection.class.set_callback(:checkout, :after) do
-                  Internal::Connection.set_application_name raw_connection, worker.id
+                  Internal::DatabaseConnection.set_application_name raw_connection, worker.id
                 end
                 Internal::BaseRecord.connection_pool.connections.each do |conn|
-                  Internal::Connection.set_application_name conn.raw_connection, worker.id
+                  Internal::DatabaseConnection.set_application_name conn.raw_connection, worker.id
                 end
               end
 

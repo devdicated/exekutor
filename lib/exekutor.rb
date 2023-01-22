@@ -24,7 +24,7 @@ require_relative "exekutor/info/worker"
 require_relative "exekutor/job"
 require_relative "exekutor/job_error"
 
-require_relative "exekutor/internal/connection"
+require_relative "exekutor/internal/database_connection"
 require_relative "exekutor/internal/logger"
 
 require_relative "exekutor/internal/executor"

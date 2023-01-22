@@ -60,11 +60,11 @@ module Exekutor
       @executables.freeze
 
       @executor.after_execute(@record) do |_job, worker_info|
-        worker_info.heartbeat!
+        worker_info.heartbeat! rescue nil
         @provider.poll if @provider.running?
       end
       @provider.on_queue_empty(@record) do |worker_info|
-        worker_info.heartbeat!
+        worker_info.heartbeat! rescue nil
         @executor.prune_pool
       end
     end
@@ -86,13 +86,22 @@ module Exekutor
     def stop
       Internal::Hooks.run :shutdown, self do
         set_state :stopped
-        @record.update(status: "s") unless @record.destroyed?
-
+        unless @record.destroyed?
+          begin
+            @record.update(status: "s")
+          rescue
+            #ignored
+          end
+        end
         @executables.reverse_each(&:stop)
 
         wait_for_termination @config[:wait_for_termination] if @config[:wait_for_termination]
 
-        @record.destroy
+        begin
+          @record.destroy
+        rescue
+          #ignored
+        end
         @stop_event&.set
       end
       true
@@ -106,7 +115,11 @@ module Exekutor
         @stop_event&.set
       end
       @executor.kill
-      @record.destroy
+      begin
+        @record.destroy
+      rescue
+        #ignored
+      end
       true
     end
 

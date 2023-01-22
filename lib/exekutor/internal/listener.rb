@@ -77,6 +77,7 @@ module Exekutor
           begin
             connection.exec(%(LISTEN "#{provider_channel}"))
             connection.exec(%(LISTEN "#{JOB_ENQUEUED_CHANNEL}"))
+            consecutive_errors.value = 0
             catch(:shutdown) { wait_for_jobs(connection) }
           ensure
             connection.exec("UNLISTEN *")
@@ -84,10 +85,11 @@ module Exekutor
         end
       rescue StandardError => err
         Exekutor.on_fatal_error err, "[Listener] Runtime error!"
-        # TODO crash if too many failures
+        consecutive_errors.increment
         if running?
-          logger.info "Restarting in 10 seconds…"
-          Concurrent::ScheduledTask.execute(10.0, executor: @pool, &method(:run))
+          delay = restart_delay
+          logger.info "Restarting in %0.1f seconds…" % [delay]
+          Concurrent::ScheduledTask.execute(delay, executor: @pool, &method(:run))
         end
       ensure
         @thread_running.make_false
@@ -133,7 +135,7 @@ module Exekutor
 
         verify!(pg_conn)
         if @config[:set_db_connection_name]
-          Connection.set_application_name pg_conn, @config[:worker_id], :listener
+          DatabaseConnection.set_application_name pg_conn, @config[:worker_id], :listener
         end
         yield pg_conn
       ensure

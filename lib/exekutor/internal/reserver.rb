@@ -32,8 +32,15 @@ module Exekutor
           ) RETURNING "id", "payload", "options", "scheduled_at"
         SQL
         if results&.length&.positive?
-          parse_jobs(*results)
+          parse_jobs results
         end
+      end
+
+      def get_abandoned_jobs(active_job_ids)
+        jobs = Exekutor::Job.executing.where(worker_id: @worker_id)
+        jobs = jobs.where.not(id: active_job_ids) if active_job_ids.present?
+        attrs = [:id, :payload, :options, :scheduled_at]
+        jobs.pluck(*attrs).map { |p| attrs.zip(p).to_h }
       end
 
       # Gets the earliest scheduled at of all pending jobs in the watched queues
@@ -47,7 +54,7 @@ module Exekutor
       private
 
       # Parses jobs from the SQL results
-      def parse_jobs(*sql_results)
+      def parse_jobs(sql_results)
         sql_results.map do |result|
           { id: result["id"],
             payload: parse_json(result["payload"]),

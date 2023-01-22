@@ -114,26 +114,29 @@ module Exekutor
         @pool.post(&method(:run)) if running?
       end
 
-      # Waits for the next job scheduling time or the polling interval and reserves jobs
+      # Does the provisioning of jobs to the executor. Blocks until the provider is stopped.
       def run
         return unless running? && @thread_running.make_true
+        DatabaseConnection.ensure_active!
 
-        # TODO check for ghost jobs
-
+        perform_pending_job_updates
+        restart_abandoned_jobs
         catch(:shutdown) do
           while running? do
             wait_for_event
             next unless reserve_jobs_now?
 
             reserve_and_execute_jobs
+            consecutive_errors.value = 0
           end
         end
       rescue StandardError => err
         Exekutor.on_fatal_error err, "[Provider] Runtime error!"
-        # TODO crash if too many failures
+        consecutive_errors.increment
         if running?
-          logger.info "Restarting in 10 seconds…"
-          Concurrent::ScheduledTask.execute(10.0, executor: @pool, &method(:run))
+          delay = restart_delay
+          logger.info "Restarting in %0.1f seconds…" % [delay]
+          Concurrent::ScheduledTask.execute(delay, executor: @pool, &method(:run))
         end
       ensure
         @thread_running.make_false
@@ -164,7 +167,7 @@ module Exekutor
         jobs = @reserver.reserve available_workers
         unless jobs.nil?
           begin
-            logger.debug "Reserved #{jobs.size.to_i} jobs"
+            logger.debug "Reserved #{jobs.size} jobs"
             jobs.each(&@executor.method(:post))
           rescue Exception
             # Try to release all jobs before re-raising
@@ -182,6 +185,24 @@ module Exekutor
         elsif @next_job_scheduled_at.get == UNKNOWN
           # If the next job timestamp is still unknown, set it to now to indicate there's still work to do
           @next_job_scheduled_at.set Time.now
+        end
+      end
+
+      def perform_pending_job_updates
+        updates = @executor.pending_job_updates
+        while (update = updates.shift).present?
+          id, attrs = update
+          Exekutor::Job.where(id: id).update_all(attrs) rescue nil
+        end
+      end
+
+      # Restarts all jobs that have the 'executing' status but are no longer running. Releases the jobs if the
+      # execution thread pool is full.
+      def restart_abandoned_jobs
+        jobs = @reserver.get_abandoned_jobs(@executor.active_job_ids)
+        if jobs&.size.to_i > 0
+          logger.debug "Restarting #{jobs.size} abandoned job#{'s' if jobs.size > 1}"
+          jobs.each(&@executor.method(:post))
         end
       end
 

@@ -42,7 +42,6 @@ module Exekutor
                    Logger: ::Logger.new(File.open(File::NULL, 'w')), AccessLog: [])
     rescue StandardError => err
       Exekutor.on_fatal_error err, "[HealthServer] Runtime error!"
-      # TODO crash if too many failures
       if running?
         logger.info "Restarting in 10 seconds…"
         Concurrent::ScheduledTask.execute(10.0, executor: @pool, &method(:start_thread))

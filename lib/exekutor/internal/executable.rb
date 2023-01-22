@@ -9,6 +9,7 @@ module Exekutor
 
       def initialize
         @state = Concurrent::AtomicReference.new(:pending)
+        @consecutive_errors = Concurrent::AtomicFixnum.new(0)
       end
 
       # The state of this executable. Possible values are:
@@ -24,6 +25,24 @@ module Exekutor
       # Whether the state equals +:started+
       def running?
         @state.get == :started
+      end
+
+      def consecutive_errors
+        @consecutive_errors
+      end
+
+      # Calculates an exponential delay based on {#consecutive_errors}. The delay ranges from 10 seconds on the first error
+      # to 10 minutes from the 13th error on.
+      # @return [Float] The delay
+      def restart_delay
+        if @consecutive_errors.value > 150
+          error = SystemExit.new "Too many consecutive errors (#{@consecutive_errors.value})"
+          Exekutor.on_fatal_error error
+          raise error
+        end
+        delay = (9 + @consecutive_errors.value ** 2.5)
+        delay += delay * ((rand(11) - 5) / 100.0)
+        delay.clamp(10.0, 600.0)
       end
 
       private

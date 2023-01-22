@@ -17,6 +17,8 @@ module Exekutor
         @executor = ThreadPoolExecutor.new name: "exekutor-job", fallback_policy: :abort, max_queue: max_threads,
                                            min_threads: min_threads, max_threads: max_threads,
                                            idletime: max_thread_idletime
+        @active_job_ids = Concurrent::Array.new
+        @pending_job_updates = Concurrent::Hash.new
       end
 
       # Starts the executor
@@ -55,6 +57,15 @@ module Exekutor
         end
       end
 
+      # @return [Array<String>] The ids of the jobs that are currently being executed
+      def active_job_ids
+        @active_job_ids.dup.to_a
+      end
+
+      def pending_job_updates
+        @pending_job_updates
+      end
+
       # Prunes the inactive threads from the pool.
       def prune_pool
         @executor.prune_pool
@@ -64,7 +75,9 @@ module Exekutor
 
       # Executes the given job
       def execute(job)
+        @active_job_ids.append(job[:id])
         Rails.application.reloader.wrap do
+          DatabaseConnection.ensure_active!
           Internal::Hooks.run :job_execution, job do
             start_time = Concurrent.monotonic_time
             begin
@@ -80,31 +93,46 @@ module Exekutor
                 ActiveJob::Base.execute(job[:payload])
               end
               update_job job, status: "c", runtime: Concurrent.monotonic_time - start_time
-            rescue PG::ConnectionBad
-              # Try to release job when the connection went bad
-              update_job job, status: "p", worker_id: nil rescue nil
-              raise
             rescue StandardError, Exekutor::DiscardJob => e
-              update_job job, status: e.is_a?(Exekutor::DiscardJob) ? "d" : "f",
-                         runtime: Concurrent.monotonic_time - start_time
-              JobError.create!(job_id: job[:id], error: e)
-              unless e.is_a?(Exekutor::DiscardJob)
-                log_error e, "Job failed"
-                Internal::Hooks.on(:job_failure, job, e)
+              discarded = e.is_a?(Exekutor::DiscardJob)
+              log_error e, "Job failed" unless discarded
+
+              if [ActiveRecord::StatementInvalid, ActiveRecord::ConnectionNotEstablished].any?(&e.method(:is_a?)) &&
+                !ActiveRecord::Base.connection.active?
+                # We lost the DB connection, try to release job
+                update_job job, status: "p", worker_id: nil
+              else
+                Internal::Hooks.on(:job_failure, job, e) unless discarded
+
+                if update_job job, status: discarded ? "d" : "f",
+                              runtime: Concurrent.monotonic_time - start_time
+                  JobError.create!(job_id: job[:id], error: e)
+                end
               end
             rescue Exception
               # Release job when an Exception occurs
-              update_job job, status: "p", worker_id: nil rescue nil
+              update_job job, status: "p", worker_id: nil
               raise
             end
+            # Run internal callbacks
             run_callbacks :after, :execute, job
           end
         end
+      ensure
+        @active_job_ids.delete(job[:id])
       end
 
       # Updates the active record entity for this job with the given attributes.
       def update_job(job, **attrs)
         Exekutor::Job.where(id: job[:id]).update_all(attrs)
+        true
+      rescue ActiveRecord::StatementInvalid, ActiveRecord::ConnectionNotEstablished => e
+        unless Exekutor::Job.connection.active?
+          log_error e, "Could not update job"
+          # Save the update for when the connection is back
+          @pending_job_updates.merge!(job[:id] => attrs) { |_k, old, new| old.present? ? old.merge!(new) : new }
+        end
+        false
       end
 
       # The default maximum number of threads. The value is equal to the size of the DB connection pool minus 1, with
