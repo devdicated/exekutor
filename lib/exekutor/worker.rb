@@ -52,9 +52,10 @@ module Exekutor
         @executables << listener
       end
       if config[:healthcheck_port].to_i > 0
-        server = HealthcheckServer.new worker: self, pool: provider_pool, port: config[:healthcheck_port],
-                                       **config.slice(:healthcheck_handler)
-                                               .transform_keys(healthcheck_handler: :handler)
+        server = Internal::HealthcheckServer.new worker: self, pool: provider_pool, port: config[:healthcheck_port],
+                                                 **config.slice(:healthcheck_handler, :healthcheck_timeout)
+                                                         .transform_keys(healthcheck_handler: :handler,
+                                                                         healthcheck_timeout: :heartbeat_timeout)
         @executables << server
       end
       @executables.freeze

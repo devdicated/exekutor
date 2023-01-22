@@ -273,6 +273,32 @@ module Exekutor
     #     @return [self]
     define_option :max_execution_thread_idletime, default: 60, type: Integer, range: 1..(1.day.to_i)
 
+
+    # @!macro
+    #   @!method $1?
+    #     The rack handler for the healthcheck server
+    #     === Default value:
+    #     webrick
+    #     @return [String]
+    #   @!method $1=(value)
+    #     Sets the rack handler for the healthcheck server. The handler should respond to +#shutdown+ or +#stop+.
+    #     @param value [String] the name of the handler
+    #     @return [self]
+    define_option :healthcheck_handler, default: "webrick", type: String
+
+    # @!macro
+    #   @!method $1?
+    #     The heartbeat timeout for the healthcheck server, in minutes. If the heartbeat of a worker is older than this
+    #     timeout, the healthcheck server will respond with a 503 status indicating the service is down.
+    #     === Default value:
+    #     30
+    #     @return [Integer]
+    #   @!method $1=(value)
+    #     Sets the heartbeat timeout for the healthcheck server, in minutes. Must be between 2 and 1440 (24 hours).
+    #     @param value [Integer] The timeout in minutes
+    #     @return [self]
+    define_option :healthcheck_timeout, default: 30, type: Integer, range: 2..1440
+
     # @!macro
     #   @!method $1?
     #     Whether to suppress STDOUT messages
@@ -294,7 +320,7 @@ module Exekutor
         opts[:max_thread_idletime] = max_execution_thread_idletime
         opts[:set_db_connection_name] = set_db_connection_name? unless set_db_connection_name.nil?
         opts[:enable_listener] = !!enable_listener?
-        %i(polling_interval polling_jitter).each do |option|
+        %i(polling_interval polling_jitter healthcheck_handler healthcheck_timeout).each do |option|
           opts[option] = send(option)
         end
       end

@@ -47,7 +47,11 @@ module Exekutor
       # Stops the listener
       def stop
         set_state :stopped
-        Exekutor::Job.connection.execute(%(NOTIFY "#{provider_channel}"))
+        begin
+          Exekutor::Job.connection.execute(%(NOTIFY "#{provider_channel}"))
+        rescue ActiveRecord::StatementInvalid, ActiveRecord::ConnectionNotEstablished
+          #ignored
+        end
       end
 
       private

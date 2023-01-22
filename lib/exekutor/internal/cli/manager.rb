@@ -48,7 +48,7 @@ module Exekutor
             end
 
             # Remove worker specific options before calling Exekutor.config.set
-            worker_options.merge! config[:exekutor].extract!(:queue, :healthcheck_port, :healthcheck_handler)
+            worker_options.merge! config[:exekutor].extract!(:queue, :healthcheck_port)
 
             begin
               Exekutor.config.set **config[:exekutor]

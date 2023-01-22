@@ -35,7 +35,7 @@ require_relative "exekutor/internal/hooks"
 
 require_relative "exekutor/asynchronous"
 require_relative "exekutor/cleanup"
-require_relative "exekutor/healthcheck_server"
+require_relative "exekutor/internal/healthcheck_server"
 require_relative "exekutor/hook"
 require_relative "exekutor/worker"
 

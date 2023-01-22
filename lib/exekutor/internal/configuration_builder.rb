@@ -34,7 +34,7 @@ module Exekutor
         # Defines a configuration option with the given name.
         # @param name [Symbol] the name of the option
         # @param required [Boolean] whether a value is required. If +true+, any +nil+ or +blank?+ value will not be allowed.
-        # @param type [Array<Class>] the allowed value types. If set the value must be an instance of any of the given classes.
+        # @param type [Class,Array<Class>] the allowed value types. If set the value must be an instance of any of the given classes.
         # @param enum [Array<Any>] the allowed values. If set the value must be one of the given values.
         # @param range [Range] the allowed value range. If set the value must be included in this range.
         # @param default [Any] the default value
