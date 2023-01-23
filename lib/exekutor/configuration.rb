@@ -162,13 +162,13 @@ module Exekutor
     #   @!method $1
     #     Gets the logger.
     #     === Default value:
-    #       Rails.logger
+    #       Rails.active_job.logger
     #     @return [ActiveSupport::Logger]
     #   @!method $1=(value)
     #     Sets the logger.
     #     @param value [ActiveSupport::Logger] the logger
     #     @return [self]
-    define_option :logger, default: -> { Rails.logger } # TODO: better default?
+    define_option :logger, default: -> { Rails.active_job.logger }
 
     # @!macro
     #   @!method $1?
@@ -252,9 +252,9 @@ module Exekutor
     #     @return [Integer]
     #   @!method $1=(value)
     #     Sets the maximum number of execution threads that may be active. Be aware that if you set this to a value
-    #     greater than +connection_db_config.pool+, workers may have to wait for database connections to be available
-    #     because all connections are occupied by other workers. This may result in a
-    #     +ActiveRecord::ConnectionTimeoutError+ if the worker has to wait too long.
+    #     greater than +connection_db_config.pool+, workers may have to wait for database connections to become
+    #     available because all connections are occupied by other threads. This may result in an
+    #     +ActiveRecord::ConnectionTimeoutError+ if the thread has to wait too long.
     #     @param value [Integer] the number of threads
     #     @return [self]
     define_option :max_execution_threads,

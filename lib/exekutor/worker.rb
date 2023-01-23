@@ -26,6 +26,9 @@ module Exekutor
     # @option config [Float] :poling_jitter the polling jitter
     # @option config [Boolean] :set_db_connection_name whether the DB connection name should be set
     # @option config [Integer,Boolean] :wait_for_termination how long the worker should wait on jobs to be completed before exiting
+    # @option config [Integer] :healthcheck_port the port to run the healthcheck server on
+    # @option config [String] :healthcheck_handler The name of the rack handler to use for the healthcheck server
+    # @option config [Integer] :healthcheck_timeout The timeout of a worker in minutes before the healthcheck server deems it as down
     def initialize(config = {})
       super()
       @config = config

@@ -10,6 +10,10 @@ module Exekutor
     TEMPLATE_DIR = File.join(__dir__, 'templates/install')
     source_paths << TEMPLATE_DIR
 
+    def create_initializer_file
+      template 'initializers/exekutor.rb.erb', 'config/initializers/exekutor.rb'
+    end
+
     def create_migration_file
       migration_template 'migrations/create_exekutor_schema.rb.erb', File.join(db_migrate_path, 'create_exekutor_schema.rb')
       if defined? Fx

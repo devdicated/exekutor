@@ -1,4 +1,5 @@
 module Exekutor
+  # Helper class to clean up finished jobs and stale workers.
   class Cleanup
 
     # Purges all workers where the last heartbeat is over the +timeout+ ago.

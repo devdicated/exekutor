@@ -1,0 +1,15 @@
+Exekutor.configure do
+  # Check the README for all configuration options
+
+  # config.logger = Logger.new("log/exekutor.log")
+  <%= default_config = Exekutor::Configuration.new
+      default_config.named_priorities = {highest: 1, high: 10_000, low: 20_000, lowest: 32_767}
+      Exekutor::Configuration.__option_names
+                             .without(:logger, :base_record_class_name, :json_serializer, :polling_jitter,
+                                      :max_execution_thread_idletime, :healthcheck_handler)
+                             .select {|name| default_config.respond_to?(name) }
+                             .map {|name|  [name, default_config.send(name)] }
+                             .filter {|(_name, value)| value.present?}
+                             .map {|(name, value)| "# config.#{name} = #{ value.inspect}" }
+                             .join("\n  ") %>
+end

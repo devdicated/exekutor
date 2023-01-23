@@ -71,7 +71,7 @@ module Exekutor
           does not exit within the shutdown timeout it will kill the process.
         TEXT
         command :stop do |c|
-          c.switch :all, desc: "Stops all workers with default pid files."
+          c.switch :all, negatable: false, desc: "Stops all workers with default pid files."
           define_stop_options c
 
           c.action do |global_options, options|
