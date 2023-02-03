@@ -28,14 +28,14 @@ Read the [Getting started guide](GETTING_STARTED.md) for the detailed documentat
 ## Configuration
 
 Exekutor can be configured in multiple ways: using [code](#code), a [yaml file](#yaml), and
-[command line options](#command-line-interface).
+[command line options](#command-line-options).
 
 ### Code
 
 Most of the configuration options can be configured from the initializer file. This file will be generated for you when 
 you run `rails g exekutor:install`.
 
-#### Default code name
+#### Default queue name
 
 ```ruby
 Exekutor.config.default_queue_name = "default"
@@ -216,7 +216,7 @@ Whether to set the application name of the DB connections for this worker.
 
 ```yaml
 exekutor:
-  enable_listener: 
+  enable_listener: true
 ```
 
 Whether to enable the listener for this worker.
@@ -277,7 +277,7 @@ threads either;
 threads finish and will kill the threads if the timeout is exceeded. 
 - Otherwise the worker will wait for the execution threads to finish indefinitely.
 
-### Command line interface
+### Command line options
 
 A small number of options are also configurable through the command line. The command line options override the values 
 set from the YAML and initializer files.
@@ -318,24 +318,16 @@ Starts a worker.
 
 #### Options
 
-`--help`: Show the help message.
-
-`--identifier=arg`: The identifier for this worker. This identifier is shown in the process name and the connection 
+- `--help` – Show the help message.
+- `--identifier=arg` – The identifier for this worker. This identifier is shown in the process name and the connection 
 name.
-
-`--pidfile=path`: The path to the PID file for a daemonized worker.
-
-`--configfile=path`: The path to the YAML configfile.
-
-`--daemonize`: Whether to daemonize the worker.
-
-`--env`: The Rails environment to load.
-
-`--poll_interval`: The poll interval for this worker.
-
-`--max_threads`: The maximum execution threads for this worker.
-
-`--queue`: The queue to work off. Can be specified multiple times.
+- `--pidfile=path` – The path to the PID file for a daemonized worker.
+- `--configfile=path` – The path to the YAML configfile.
+- `--daemonize` – Whether to daemonize the worker.
+- `--env` – The Rails environment to load.
+- `--poll_interval` – The poll interval for this worker.
+- `--max_threads` – The maximum execution threads for this worker.
+- `--queue` – The queue to work off. Can be specified multiple times.
 
 ### Stop
 
@@ -347,14 +339,11 @@ Stops a daemonized worker.
 
 #### Options
 
-`--identifier=arg`: The identifier of the worker to stop. (translates to `--pidfile=tmp/pids/exekutor.%{identifier}.pid`)
-
-`--pidfile=path`: The path to the PID file of the worker to stop.
-
-`--all`: Stops all daemonized workers with default pidfiles (ie. `tmp/pids/exekutor*.pid`). You can use `pidfile` option 
-to indicate another pidfile pattern.
-
-`--shutdown_timeout=int`: The amount of seconds to wait before killing a worker process.
+- `--identifier=arg` – The identifier of the worker to stop. (translates to `--pidfile=tmp/pids/exekutor.%{identifier}.pid`)
+- `--pidfile=path` – The path to the PID file of the worker to stop.
+- `--all` – Stops all daemonized workers with default pidfiles (ie. `tmp/pids/exekutor*.pid`). You can use `pidfile` option 
+to use a custom pidfile pattern.
+- `--shutdown_timeout=int` – The amount of seconds to wait before killing a worker process.
 
 ### Restart
 
@@ -366,12 +355,12 @@ Restarts a daemonized worker with the specified options.
 
 #### Options
 
-See [start](#Start). 
+See [start](#start). 
 
 >Exekutor will not remember the original start options, they have to be fully specified again when
 you restart a worker.
 
-`--shutdown_timeout=int`: The amount of seconds to wait before killing a worker process.
+- `--shutdown_timeout=int` – The amount of seconds to wait before killing a worker process.
 
 ### Info
 
@@ -383,7 +372,7 @@ Prints info about the active workers and pending jobs.
 
 #### Options
 
-`--environment`: The Rails environment to load.
+- `--environment` – The Rails environment to load.
 
 ### Cleanup
 
@@ -395,16 +384,12 @@ Cleans up finished jobs and/or stale workers
 
 #### Options
 
-`--environment=arg`: The Rails environment to load.
-
-`--job_status=arg`: The statuses to purge. 
-
-`--timeout=int`: The timeout in hours. Workers and jobs before the timeout will be purged.
-
-`--job_timeout=int`: The job timeout in hours (overrides `--timeout`). Jobs where `scheduled_at` is before the timeout 
+- `--environment=arg` – The Rails environment to load.
+- `--job_status=arg` – The statuses to purge. 
+- `--timeout=int` – The timeout in hours. Workers and jobs before the timeout will be purged.
+- `--job_timeout=int` – The job timeout in hours (overrides `--timeout`). Jobs where `scheduled_at` is before the timeout 
 will be purged.
-
-`--worker_timeout=int`: The worker timeout in hours (overrides `--timeout`). Workers where the last heartbeat is before 
+- `--worker_timeout=int` – The worker timeout in hours (overrides `--timeout`). Workers where the last heartbeat is before 
 the timeout will be purged.
 
 ## Job options
@@ -501,49 +486,38 @@ You can register hooks to be called for certain lifecycle events in Exekutor. Th
 
 #### Hook types
 
-`before_enqueue`: Called before a job is enqueued. Receives the job as an argument.
-
-`around_enqueue`: Called when a job is enqueued, `yield` must be called to propagate the call. Receives the job as an 
+- `before_enqueue` – Called before a job is enqueued. Receives the job as an argument.
+- `around_enqueue` – Called when a job is enqueued, `yield` must be called to propagate the call. Receives the job as an 
 argument. 
-
-`after_enqueue`: Called after a job is enqueued. Receives the job as an argument.
-
-`before_job_execution`: Called before a job is executed. Receives a `Hash` with job info as an argument.
-
-`around_job_execution`: Called when a job is executed, `yield` must be called to propagate the call. Receives a `Hash` 
+- `after_enqueue` – Called after a job is enqueued. Receives the job as an argument.
+- `before_job_execution` – Called before a job is executed. Receives a `Hash` with job info as an argument.
+- `around_job_execution` – Called when a job is executed, `yield` must be called to propagate the call. Receives a `Hash` 
 with job info as an argument.
-
-`after_job_execution`: Called after a job is executed. Receives a `Hash` with job info as an argument.
-
-`on_job_failure`: Called after a job has raised an error. Receives a `Hash` with job info and the raised error as 
+- `after_job_execution` – Called after a job is executed. Receives a `Hash` with job info as an argument.
+- `on_job_failure` – Called after a job has raised an error. Receives a `Hash` with job info and the raised error as 
 arguments.
-
-`on_fatal_error`: Called after an error was raised outside job execution. Receives the raised error as an argument.
-
-`before_startup`: Called before starting up a worker. Receives the worker as an argument.
-
-`after_startup`: Called after a worker has started up. Receives the worker as an argument.
-
-`before_shutdown`: Called before shutting down a worker. Receives the worker as an argument.
-
-`after_shutdown`: Called after a worker has shutdown. Receives the worker as an argument.
+- `on_fatal_error` – Called after an error was raised outside job execution. Receives the raised error as an argument.
+- `before_startup` – Called before starting up a worker. Receives the worker as an argument.
+- `after_startup` – Called after a worker has started up. Receives the worker as an argument.
+- `before_shutdown` – Called before shutting down a worker. Receives the worker as an argument.
+- `after_shutdown` – Called after a worker has shutdown. Receives the worker as an argument.
 
 #### The job execution hooks
 
 The job execution hooks receive a `Hash` with job info instead of a active job instance. This has contains the following
 values:
 
-- `id`: The Exekutor id of the job.
-- `options`: The custom Exekutor options for this job.
-- `payload`: The active job payload for this job.
-- `scheduled_at`: The time this job was meant to be executed.
+- `id` – The Exekutor id of the job.
+- `options` – The custom Exekutor options for this job.
+- `payload` – The active job payload for this job.
+- `scheduled_at` – The time this job was meant to be executed.
 
 ### Error handling
 
 You can use a hook to inform your error monitoring tool about any errors. If you want to add your favorite monitoring 
 tool as a plugin, feel free to open a PR!
 
-## Running from Ruby
+## Running a worker from Ruby
 
 You can also start a worker from Ruby code:
 
@@ -647,6 +621,14 @@ will slow down your table. Regularly purging these jobs will make sure your jobs
 - `:status` – The job statuses to purgs. Only jobs with the specified status will be purged.
 
 ## Deployment
+
+When deploying on a server, use a process monitoring tool like Eye, Bluepill, or God to manage your workers in a 
+production environment. This will ensure your workers will be kept active. 
+
+### Healthcheck server
+
+Use the healthcheck server to check if your worker is running by getting `localhost:[port]/up`.
+The `up` endpoint also checks if your worker is not hanging by looking at the worker heartbeat.
 
 ## Caveats
 

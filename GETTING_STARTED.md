@@ -44,7 +44,7 @@ This will create the necessary tables for Exekutor to work and creates a few dat
 > The generated database functions and triggers do not end up in your `schema.rb` file.
 > There are a few things to get around this:
 > - Install the [Fx](https://rubygems.org/gems/fx) gem. If this gem is loaded when generating the migration, the
-    >   generator will automatically generate a migration which uses `Fx`.
+    generator will automatically generate a migration which uses `Fx`.
 > - Change your schema output to
     SQL: [Rails guide](https://edgeguides.rubyonrails.org/active_record_migrations.html#types-of-schema-dumps)
 > - Create the functions and triggers in the seeds file.
