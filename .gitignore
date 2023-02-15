@@ -1,8 +1,8 @@
-
 # RubyMine project.
 /.idea
 
 # Bundler config.
+Gemfile.lock
 /.bundle
 
 # Documentation
