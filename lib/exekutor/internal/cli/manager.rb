@@ -64,8 +64,12 @@ module Exekutor
           elsif quiet?
             worker_options[:quiet] = true
           end
-          if options[:threads].present?
-            min, max = options[:threads].split(":")
+          if options[:threads] && !options[:threads].is_a?(DefaultOptionValue)
+            min, max = if options[:threads].is_a?(Integer)
+                         [options[:threads], options[:threads]]
+                       else
+                         options[:threads].to_s.split(":")
+                       end
             if max.nil?
               options[:min_threads] = options[:max_threads] = Integer(min)
             else

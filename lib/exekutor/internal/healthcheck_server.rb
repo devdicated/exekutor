@@ -1,9 +1,12 @@
 # frozen_string_literal: true
 module Exekutor
   module Internal
+    # Serves a simple health check app
     class HealthcheckServer
-      include Internal::Executable, Internal::Logger
-      DEFAULT_HANDLER = 'webrick'
+      include Internal::Logger
+      include Internal::Executable
+
+      DEFAULT_HANDLER = "webrick"
 
       def initialize(worker:, pool:, port:, handler: DEFAULT_HANDLER, heartbeat_timeout: 30)
         super()
@@ -18,6 +21,7 @@ module Exekutor
 
       def start
         return false unless compare_and_set_state :pending, :started
+
         start_thread
       end
 
@@ -27,15 +31,15 @@ module Exekutor
 
       def stop
         set_state :stopped
-        if @thread_running.value
-          server = @server.value
-          if server&.respond_to? :shutdown
-            server.shutdown
-          elsif server&.respond_to? :stop
-            server.stop
-          elsif server
-            Exekutor.say! "Cannot shutdown healthcheck server, #{server.class.name} does not respond to shutdown or stop"
-          end
+        return unless @thread_running.value
+
+        server = @server.value
+        if server&.respond_to? :shutdown
+          server.shutdown
+        elsif server&.respond_to? :stop
+          server.stop
+        elsif server
+          Exekutor.say! "Cannot shutdown healthcheck server, #{server.class.name} does not respond to shutdown or stop"
         end
       end
 
@@ -43,9 +47,10 @@ module Exekutor
 
       def run(worker, port)
         return unless state == :started && @thread_running.make_true
+
         Exekutor.say "Starting healthcheck server at 0.0.0.0:#{port}… (Timeout: #{@heartbeat_timeout} minutes)"
-        @handler.run(App.new(worker, @heartbeat_timeout), Port: port, Host: '0.0.0.0', Silent: true,
-                     Logger: ::Logger.new(File.open(File::NULL, 'w')), AccessLog: []) do |server|
+        @handler.run(App.new(worker, @heartbeat_timeout), Port: port, Host: "0.0.0.0", Silent: true,
+                     Logger: ::Logger.new(File.open(File::NULL, "w")), AccessLog: []) do |server|
           @server.set server
         end
       rescue StandardError => err
@@ -67,12 +72,20 @@ module Exekutor
 
         def call(env)
           case Rack::Request.new(env).path
-          when '/'
-            running = @worker.running?
+          when "/"
+            [200, {}, [
+              <<~RESPONSE
+                [Healthcheck]
+                 - Use GET /ready to check whether the worker is running and connected to the DB
+                 - Use GET /live to check whether the worker is running and is not hanging
+              RESPONSE
+            ]]
+          when "/ready"
+            running = @worker.running? && Exekutor::Job.connection.active?
             [(running ? 200 : 503), {}, [
               "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}"
             ]]
-          when '/up'
+          when "/live"
             running = @worker.running?
             last_heartbeat = if running
                                @worker.last_heartbeat
