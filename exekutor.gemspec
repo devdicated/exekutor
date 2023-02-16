@@ -41,16 +41,18 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "activejob", ">= 6.0", "< 8.0"
   spec.add_dependency "activerecord", ">= 6.0", "< 8.0"
+  spec.add_dependency "railties", ">= 6.0", "< 8.0"
+
   spec.add_dependency "concurrent-ruby", "~> 1.1"
-  spec.add_dependency "gli", ">= 2"
-  spec.add_dependency "rainbow", ">= 3.0"
-  spec.add_dependency "terminal-table", ">= 3.0"
+  spec.add_dependency "gli", "~> 2.0"
+  spec.add_dependency "rainbow", "~> 3.0"
+  spec.add_dependency "terminal-table", "~> 3.0"
 
   spec.add_development_dependency "brakeman"
   spec.add_development_dependency "minitest", "~> 5.0"
+  spec.add_development_dependency "minitest-reporters"
   spec.add_development_dependency "rubocop", "~> 1.21"
   spec.add_development_dependency "simplecov"
   spec.add_development_dependency "yard"
   spec.add_development_dependency "yard-activesupport-concern"
-  spec.add_development_dependency "bundler-audit"
 end

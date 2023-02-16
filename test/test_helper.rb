@@ -1,6 +1,12 @@
 # frozen_string_literal: true
 
-$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
-require "exekutor"
+require "bundler/setup"
 
 require "minitest/autorun"
+# require "minitest/pride"
+require "minitest/reporters"
+
+require "rails/all"
+Bundler.require :default
+
+Minitest::Reporters.use! unless ENV['RM_INFO']
