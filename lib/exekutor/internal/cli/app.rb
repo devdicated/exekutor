@@ -30,11 +30,11 @@ module Exekutor
 
         # Defines start command flags
         def self.define_start_options(c)
-          c.flag %i[env environment], desc: "The Rails environment."
+          c.flag %i[env environment], desc: "The Rails environment"
           c.flag %i[q queue], default_value: Manager::DEFAULT_QUEUE, multiple: true,
-                 desc: "Queue to work from."
-          c.flag %i[t max_threads], type: Integer, default_value: Manager::DEFAULT_MAX_THREADS,
-                 desc: "Maximum number of threads for executing jobs."
+                 desc: "Queue to work from"
+          c.flag %i[t threads], type: String, default_value: Manager::DEFAULT_THREADS,
+                 desc: "The number of threads for executing jobs, specified as `min:max`"
           c.flag %i[p poll_interval], type: Integer, default_value: DefaultOptionValue.new( value: 60),
                  desc: "Interval between polls for available jobs (in seconds)"
           c.flag %i[cfg configfile], type: String, default_value: Manager::DEFAULT_CONFIG_FILES, multiple: true,

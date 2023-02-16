@@ -20,7 +20,7 @@ module Exekutor
         # @option options [Boolean] :daemonize Whether the worker should be daemonized
         # @option options [String] :environment The Rails environment to load
         # @option options [String] :queue The queue(s) to watch
-        # @option options [Integer] :max_threads The maximum number of threads to use for job execution
+        # @option options [String] :threads The number of threads to use for job execution
         # @option options [Integer] :poll_interval The interval in seconds for job polling
         # @return [Void]
         def start(options)
@@ -64,8 +64,17 @@ module Exekutor
           elsif quiet?
             worker_options[:quiet] = true
           end
+          if options[:threads].present?
+            min, max = options[:threads].split(":")
+            if max.nil?
+              options[:min_threads] = options[:max_threads] = Integer(min)
+            else
+              options[:min_threads] = Integer(min)
+              options[:max_threads] = Integer(max)
+            end
+          end
           worker_options.merge!(
-            options.slice(:queue, :max_threads, :poll_interval)
+            options.slice(:queue, :min_threads, :max_threads, :poll_interval)
                    .reject { |_, value| value.is_a? DefaultOptionValue }
                    .transform_keys(poll_interval: :polling_interval)
           )
@@ -234,7 +243,7 @@ module Exekutor
         DEFAULT_PIDFILE = DefaultPidFileValue.new.freeze
         DEFAULT_CONFIG_FILES = DefaultConfigFileValue.new.freeze
 
-        DEFAULT_MAX_THREADS = DefaultOptionValue.new("Active record pool size minus 1, with a minimum of 1").freeze
+        DEFAULT_THREADS = DefaultOptionValue.new("Minimum: 1, Maximum: Active record pool size minus 1, with a minimum of 1").freeze
         DEFAULT_QUEUE = DefaultOptionValue.new("All queues").freeze
         DEFAULT_FOREVER = DefaultOptionValue.new("Forever").freeze
 
