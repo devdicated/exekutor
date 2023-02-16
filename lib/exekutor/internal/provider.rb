@@ -169,10 +169,14 @@ module Exekutor
           begin
             logger.debug "Reserved #{jobs.size} jobs"
             jobs.each(&@executor.method(:post))
-          rescue Exception
+          rescue Exception # rubocop:disable Lint/RescueException
             # Try to release all jobs before re-raising
-            Exekutor::Job.where(id: jobs.collect { |job| job[:id] }, status: "e")
-                         .update_all(status: "p", worker_id: nil) rescue nil
+            begin
+              Exekutor::Job.where(id: jobs.collect { |job| job[:id] }, status: "e")
+                           .update_all(status: "p", worker_id: nil)
+            rescue # rubocop:disable Lint/RescueStandardError
+              # ignored
+            end
             raise
           end
         end
@@ -190,9 +194,19 @@ module Exekutor
 
       def perform_pending_job_updates
         updates = @executor.pending_job_updates
-        while (update = updates.shift).present?
-          id, attrs = update
-          Exekutor::Job.where(id: id).update_all(attrs) rescue nil
+        while (id, attrs = updates.shift).present?
+          begin
+            if attrs == :destroy
+              Exekutor::Job.destroy(id)
+            else
+              Exekutor::Job.where(id: id).update_all(attrs)
+            end
+          rescue ActiveRecord::StatementInvalid, ActiveRecord::ConnectionNotEstablished
+            unless Exekutor::Job.connection.active?
+              # Connection lost again, avoid trying further updates
+              return
+            end
+          end
         end
       end
 
@@ -200,10 +214,10 @@ module Exekutor
       # execution thread pool is full.
       def restart_abandoned_jobs
         jobs = @reserver.get_abandoned_jobs(@executor.active_job_ids)
-        if jobs&.size.to_i > 0
-          logger.debug "Restarting #{jobs.size} abandoned job#{'s' if jobs.size > 1}"
-          jobs.each(&@executor.method(:post))
-        end
+        return if jobs&.size.to_i.zero?
+
+        logger.debug "Restarting #{jobs.size} abandoned job#{"s" if jobs.size > 1}"
+        jobs.each(&@executor.method(:post))
       end
 
       # @return [Boolean] Whether the polling is enabled. Ie. whether a polling interval is set.

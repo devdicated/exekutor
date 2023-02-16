@@ -35,7 +35,9 @@ module Exekutor
       @record = create_record!
 
       @reserver = Internal::Reserver.new @record.id, config[:queues]
-      @executor = Internal::Executor.new(**config.slice(:min_threads, :max_threads, :max_thread_idletime))
+      @executor = Internal::Executor.new(**config.slice(:min_threads, :max_threads, :max_thread_idletime,
+                                                        :delete_completed_jobs, :delete_discarded_jobs,
+                                                        :delete_failed_jobs))
 
       provider_threads = 1
       provider_threads += 1 if config.fetch(:enable_listener, true)

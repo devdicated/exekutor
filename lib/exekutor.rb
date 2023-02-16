@@ -8,9 +8,7 @@ module Exekutor
   class Error < StandardError; end
 
   # Error that can be raised during job execution causing the job to be discarded
-  class DiscardJob < Exception
-    # Use Exception as base class so it is less likely to be caught in rescue blocks
-  end
+  class DiscardJob < StandardError; end
 end
 
 require_relative "exekutor/queue"

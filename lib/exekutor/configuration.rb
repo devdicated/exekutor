@@ -92,8 +92,7 @@ module Exekutor
     #     @raise [Error] When the name is blank
     #     @param value [String] the class name
     #     @return [self]
-    define_option :base_record_class_name, default: DEFAULT_BASE_RECORD_CLASS, required: true,
-                  type: String
+    define_option :base_record_class_name, default: DEFAULT_BASE_RECORD_CLASS, required: true, type: String
 
     # Gets the base class for database records. Is derived from the {#base_record_class_name} option.
     # @raise [Error] when the class cannot be found
@@ -104,9 +103,10 @@ module Exekutor
       # A nicer message for the default value
       if base_record_class_name == DEFAULT_BASE_RECORD_CLASS
         raise Error, "Cannot find ActiveRecord, did you install and load the gem?"
-      else
-        raise
       end
+
+      raise
+
     end
 
     # @!macro
@@ -126,7 +126,7 @@ module Exekutor
     #                    and +#load+
     #     @param value [String,Symbol,Proc,Object] the serializer
     #     @return [self]
-    define_option :json_serializer, default: JSON, required: true do |value|
+    define_option :json_serializer, default: "::JSON", required: true do |value|
       unless value.is_a?(String) || value.is_a?(Symbol) || value.respond_to?(:call) ||
         (value.respond_to?(:dump) && value.respond_to?(:load))
         raise Error, "#json_serializer must either be a String, a Proc, or respond to #dump and #load"
@@ -200,7 +200,47 @@ module Exekutor
     #     Sets whether the worker should use LISTEN/NOTIFY to listen for jobs
     #     @param value [Boolean] whether to enable the listener
     #     @return [self]
-    define_option :enable_listener, reader: :enable_listener?, default: true, type: [TrueClass, FalseClass], required: true
+    define_option :enable_listener, reader: :enable_listener?, default: true, type: [TrueClass, FalseClass],
+                  required: true
+
+    # @!macro
+    #   @!method $1?
+    #     Whether the worker should delete jobs after completion.
+    #     === Default value:
+    #     false
+    #     @return [Boolean]
+    #   @!method $1=(value)
+    #     Sets whether the worker should delete jobs after completion
+    #     @param value [Boolean] whether to delete completed jobs
+    #     @return [self]
+    define_option :delete_completed_jobs, reader: :delete_completed_jobs?, required: true,
+                  type: [TrueClass, FalseClass], default: false
+
+    # @!macro
+    #   @!method $1?
+    #     Whether the worker should delete discarded jobs.
+    #     === Default value:
+    #     false
+    #     @return [Boolean]
+    #   @!method $1=(value)
+    #     Sets whether the worker should delete discarded jobs
+    #     @param value [Boolean] whether to delete discarded jobs
+    #     @return [self]
+    define_option :delete_discarded_jobs, reader: :delete_discarded_jobs?, required: true,
+                  type: [TrueClass, FalseClass], default: false
+
+    # @!macro
+    #   @!method $1?
+    #     Whether the worker should delete jobs after they failed to execute.
+    #     === Default value:
+    #     false
+    #     @return [Boolean]
+    #   @!method $1=(value)
+    #     Sets whether the worker should delete jobs after they failed to execute
+    #     @param value [Boolean] whether to delete failed jobs
+    #     @return [self]
+    define_option :delete_failed_jobs, reader: :delete_failed_jobs?, required: true,
+                  type: [TrueClass, FalseClass], default: false
 
     # @!macro
     #   @!method $1
@@ -273,7 +313,6 @@ module Exekutor
     #     @return [self]
     define_option :max_execution_thread_idletime, default: 60, type: Integer, range: 1..(1.day.to_i)
 
-
     # @!macro
     #   @!method $1?
     #     The rack handler for the healthcheck server
@@ -314,13 +353,16 @@ module Exekutor
     # Gets the options for a worker
     # @return [Hash] the worker configuration
     def worker_options
-      {}.tap do |opts|
-        opts[:min_threads] = min_execution_threads
-        opts[:max_threads] = max_execution_threads
-        opts[:max_thread_idletime] = max_execution_thread_idletime
+      {
+        min_threads: min_execution_threads,
+        max_threads: max_execution_threads,
+        max_thread_idletime: max_execution_thread_idletime,
+      }.tap do |opts|
         opts[:set_db_connection_name] = set_db_connection_name? unless set_db_connection_name.nil?
-        opts[:enable_listener] = !!enable_listener?
-        %i(polling_interval polling_jitter healthcheck_handler healthcheck_timeout).each do |option|
+        %i[enable_listener delete_completed_jobs delete_discarded_jobs delete_failed_jobs].each do |option|
+          opts[option] = send(:"#{option}?") ? true : false
+        end
+        %i[polling_interval polling_jitter healthcheck_handler healthcheck_timeout].each do |option|
           opts[option] = send(option)
         end
       end
@@ -344,7 +386,7 @@ module Exekutor
           Object.const_get class_name
         rescue NameError
           raise Error, <<~MSG.squish
-            Cannot convert ##{parameter_name} (#{class_name.inspect}) to a constant. Have you made a typo?
+            Cannot convert ##{option_name} (#{class_name.inspect}) to a constant. Have you made a typo?
           MSG
         end
       else
@@ -369,13 +411,14 @@ module Exekutor
   def self.configure(opts = nil, &block)
     raise ArgumentError, "opts must be a Hash" unless opts.nil? || opts.is_a?(Hash)
     raise ArgumentError, "Either opts or a block must be given" unless opts.present? || block_given?
-    config.set **opts if opts
-    if block_given?
-      if block.arity == 1
-        block.call config
-      else
-        instance_eval &block
-      end
+
+    config.set(**opts) if opts
+    return unless block_given?
+
+    if block.arity == 1
+      block.call config
+    else
+      instance_eval(&block)
     end
   end
 end
