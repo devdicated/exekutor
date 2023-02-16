@@ -21,7 +21,7 @@ module Exekutor
         elsif block.arity == 1
           block.call self
         else
-          instance_eval &block
+          instance_eval(&block)
         end
       end
 

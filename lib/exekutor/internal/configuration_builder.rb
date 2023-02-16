@@ -104,7 +104,7 @@ module Exekutor
       protected
 
       # The error class to raise when an invalid option value is set
-      # @return [StandardError]
+      # @return [Class<StandardError>]
       def error_class
         raise "Implementing class should override #error_class"
       end
