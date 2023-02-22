@@ -11,6 +11,11 @@ Gemfile.lock
 # Yard files
 /.yardoc
 
+# Combustion rails files
+/test/rails_engine/tmp
+/test/rails_engine/log
+/test/rails_engine/db/*.sqlite
+
 # Brakeman output
 brakeman.html
 
