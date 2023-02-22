@@ -57,14 +57,14 @@ module Exekutor
           # Chain all callbacks together, ending with the original given block
           callbacks.inject(-> { yield(*args) }) do |next_callback, (callback, extra_args)|
             if callback.arity.positive?
-              -> do
+              lambda do
                 callback.call(*(args + extra_args)) { next_callback.call }
               rescue StandardError => err
                 Exekutor.on_fatal_error err, "[Executor] Callback error!"
                 next_callback.call
               end
             else
-              -> do
+              lambda do
                 callback.call { next_callback.call }
               rescue StandardError => err
                 Exekutor.on_fatal_error err, "[Executor] Callback error!"
@@ -83,7 +83,12 @@ module Exekutor
               callback.call(*(args + extra_args))
             end
           rescue StandardError => err
-            Exekutor.on_fatal_error err, "[Executor] Callback error!"
+            if action == :fatal_error
+              # Just print the error to prevent an infinite loop
+              Exekutor.print_error err, "[Executor] Callback error!"
+            else
+              Exekutor.on_fatal_error err, "[Executor] Callback error!"
+            end
           end
         end
         nil
@@ -92,7 +97,7 @@ module Exekutor
       # Runs :before, :around, and :after callbacks for the specified action.
       def with_callbacks(action, *args)
         run_callbacks :before, action, *args
-        run_callbacks(:around, action, *args) { |fargs| yield(*fargs) }
+        run_callbacks(:around, action, *args) { |*fargs| yield(*fargs) }
         run_callbacks :after, action, *args
         nil
       end
@@ -105,7 +110,7 @@ module Exekutor
         __callbacks[type] << [callback, args]
       end
 
-      module ClassMethods
+      class_methods do
         # Defines the specified callbacks on this class. Also defines a method with the given name to register the callback.
         # @param callbacks [Symbol] the callback names to define. Must start with +on_+, +before_+, +after_+, or +around_+.
         # @param freeze [Boolean] if true, freezes the callbacks so that no other callbacks can be defined

@@ -13,24 +13,6 @@ module Exekutor
 
     # @!macro
     #   @!method $1
-    #     Gets the default queue name. Is used when enqueueing jobs that don't have a queue set.
-    #     === Default value:
-    #     +"default"+
-    #     @return [String]
-    #   @!method $1=(value)
-    #     Sets the default queue name. Is used when enqueueing jobs that don't have a queue set. The name should not be
-    #     blank and should be shorter than 64 characters.
-    #     @raise [Error] When the name is blank or too long
-    #     @param value [String] the queue name
-    #     @return [self]
-    define_option :default_queue_name, default: "default", required: true, type: String do |value|
-      if value.length > Exekutor::Queue::MAX_NAME_LENGTH
-        raise Error, "The queue name \"#{value}\" is too long, the limit is #{Exekutor::Queue::MAX_NAME_LENGTH} characters"
-      end
-    end
-
-    # @!macro
-    #   @!method $1
     #     Gets the default queue priority. Is used when enqueueing jobs that don't have a priority set.
     #     === Default value:
     #     16,383
@@ -43,41 +25,6 @@ module Exekutor
     #     @return [self]
     define_option :default_queue_priority, default: 16_383, required: true, type: Integer,
                   range: Exekutor::Queue::VALID_PRIORITIES
-
-    # @!macro
-    #   @!method $1
-    #     Gets the named priorities. These will be used when enqueueing a job which has a +Symbol+ as priority value.
-    #     === Default value:
-    #     None, using a +Symbol+ as priority raises an error by default.
-    #     @return [Hash<Symbol, Integer>,nil]
-    #   @!method $1=(value)
-    #     Sets the named priorities. These will be used when enqueueing a job which has a +Symbol+ as priority value.
-    #     Should be a Hash with +Symbol+ keys and +Integer+ values, the values should be between 1 and 32,767.
-    #     @raise [Error] When the value contains invalid keys or values
-    #     @param value [Hash<Symbol, Integer>,nil] the priorities
-    #     @return [self]
-    define_option :named_priorities, type: Hash do |value|
-      if (invalid_keys = value.keys.select { |k| !k.is_a? Symbol }).present?
-        class_names = invalid_keys.map(&:class).map(&:name).uniq
-        raise Error, "Invalid priority name type#{"s" if class_names.many?}: #{class_names.join(", ")}"
-      end
-      if (invalid_values = value.values.select { |v| !(v.is_a?(Integer) && (Exekutor::Queue::VALID_PRIORITIES).include?(v)) }).present?
-        raise Error, "Invalid priority value#{"s" if invalid_values.many?}: #{invalid_values.join(", ")}"
-      end
-    end
-
-    # Gets the priority value for the given name
-    # @param name [Symbol] the priority name
-    # @return [Integer] the priority value
-    def priority_for_name(name)
-      if named_priorities.blank?
-        raise Error, "You have configured '#{name}' as a priority, but #named_priorities is not configured"
-      end
-      raise Error, "The priority name should be a Symbol (actual: #{name.class})" unless name.is_a? Symbol
-      raise Error, "#named_priorities does not contain a value for '#{name}'" unless named_priorities.include? name
-
-      named_priorities[name]
-    end
 
     # @!macro
     #   @!method $1
@@ -99,14 +46,13 @@ module Exekutor
     # @return [Class]
     def base_record_class
       const_get :base_record_class_name
-    rescue Error
+    rescue ::StandardError
       # A nicer message for the default value
       if base_record_class_name == DEFAULT_BASE_RECORD_CLASS
         raise Error, "Cannot find ActiveRecord, did you install and load the gem?"
       end
 
       raise
-
     end
 
     # @!macro
@@ -138,19 +84,20 @@ module Exekutor
     # @return [Object]
     def load_json_serializer
       raw_value = self.json_serializer
-      return @json_serializer_instance[1] if @json_serializer_instance && @json_serializer_instance[0] == raw_value
+      if defined?(@json_serializer_instance) && @json_serializer_instance[0] == raw_value
+        return @json_serializer_instance[1]
+      end
 
       serializer = const_get :json_serializer
       unless serializer.respond_to?(:dump) && serializer.respond_to?(:load)
-        if serializer.respond_to?(:call)
-          serializer = serializer.call
-        elsif serializer.respond_to?(:new)
-          serializer = serializer.new
+        serializer = serializer.call if serializer.respond_to?(:call)
+        unless serializer.respond_to?(:dump) && serializer.respond_to?(:load)
+          serializer = serializer.new if serializer.respond_to?(:new)
         end
       end
       unless serializer.respond_to?(:dump) && serializer.respond_to?(:load)
         raise Error, <<~MSG.squish
-          The configured serializer (#{serializer.name}) does not respond to #dump and #load
+          The configured serializer (#{serializer.class}) does not respond to #dump and #load
         MSG
       end
 
@@ -298,7 +245,7 @@ module Exekutor
     #     @param value [Integer] the number of threads
     #     @return [self]
     define_option :max_execution_threads,
-                  default: -> { (Exekutor::Job.connection_db_config.pool.to_i - 1).clamp(1, 999) },
+                  default: -> { (Internal::BaseRecord.connection_db_config.pool.to_i - 1).clamp(1, 999) },
                   type: Integer, range: 1...999
 
     # @!macro
@@ -384,7 +331,7 @@ module Exekutor
                        end
 
           Object.const_get class_name
-        rescue NameError
+        rescue NameError, LoadError
           raise Error, <<~MSG.squish
             Cannot convert ##{option_name} (#{class_name.inspect}) to a constant. Have you made a typo?
           MSG

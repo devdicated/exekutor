@@ -21,7 +21,7 @@ module Exekutor
       def set(**options)
         invalid_options = options.keys - __option_names
         if invalid_options.present?
-          raise Error, "Invalid option#{"s" if invalid_options.many?}: #{invalid_options.map(&:inspect).join(", ")}"
+          raise error_class, "Invalid option#{"s" if invalid_options.many?}: #{invalid_options.map(&:inspect).join(", ")}"
         end
 
         options.each do |name, value|

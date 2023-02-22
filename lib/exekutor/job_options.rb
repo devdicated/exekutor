@@ -49,8 +49,7 @@ module Exekutor
       super(options)
     end
 
-    # Contains class methods to define on classes including this builder
-    module ClassMethods
+    class_methods do
       # Sets the exekutor options that apply to all instances of this job. These options can be overwritten with +#set+.
       # @param options [Hash<Symbol, Object>] the exekutor options
       # @option options [ActiveSupport::Duration] :queue_timeout The queue timeout
@@ -74,9 +73,11 @@ module Exekutor
       # @return [void]
       def validate_exekutor_options!(options)
         return unless options.present?
+
         invalid_options = options.keys - VALID_EXEKUTOR_OPTIONS
         if invalid_options.present?
-          raise InvalidOption, "Invalid option#{"s" if invalid_options.many?}: #{invalid_options.map(&:inspect).join(", ")}. " \
+          raise InvalidOption, "Invalid option#{"s" if invalid_options.many?}: " \
+            "#{invalid_options.map(&:inspect).join(", ")}. " \
             "Valid options are: #{VALID_EXEKUTOR_OPTIONS.map(&:inspect).join(", ")}"
         end
         if options[:queue_timeout]

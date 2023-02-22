@@ -23,7 +23,7 @@ module Exekutor
       mattr_reader :__async_instance_methods, instance_accessor: false, default: {}
     end
 
-    module ClassMethods
+    class_methods do
       # Changes a method to be executed asynchronously.
       # Be aware that you can no longer use the return value for
       # asynchronous methods, because the actual method will be performed by a worker at a later time. The new

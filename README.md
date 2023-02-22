@@ -34,13 +34,6 @@ Exekutor can be configured in multiple ways: using [code](#code), a [yaml file](
 Most of the configuration options can be configured from the initializer file. This file will be generated for you when 
 you run `rails g exekutor:install`.
 
-#### Default queue name
-The default queue for jobs without an explicitly specified queue.
-
-```ruby
-Exekutor.config.default_queue_name = "default"
-```
-
 #### Default queue priority
 
 The default priority for jobs without an explicitly specified priority. The valid range for a job priority is between 1
@@ -50,15 +43,6 @@ The default priority for jobs without an explicitly specified priority. The vali
 Exekutor.config.default_queue_priority = 16383
 ```
 
-#### Named priorities
-
-Setting this will allow you to use a `Symbol` to indicate a job priority, eg. 
-`MyJob.set(priority: :high).perform_later`. There are no named priorities defined by
-default.
-
-```ruby
-Exekutor.config.named_priorities = { highest: 1, high: 10000, low: 20000, lowest: 32767 } 
-```
 
 #### Base record class name
 
@@ -452,15 +436,15 @@ end
 
 ### Caveats
 
+#### Method arguments
+Exekutor can only perform methods asynchronously if all the arguments can be serialized by active job. See the [active
+job documentation](https://guides.rubyonrails.org/v6.1/active_job_basics.html#supported-types-for-arguments) for the
+supported arguments.
+
 #### Executing instance methods
 Exekutor can only perform instance methods asynchronously if the class instance can be serialized by active job.
 In practice, this means that you can only do this on active record models because they are serialized to a `GlobalID`.
 If you want to use this mixin on another class, you'll have to write your own active job serializer.
-
-#### Method arguments
-Exekutor can only perform methods asynchronously if all the arguments can be serialized by active job. See the [active
-job documentation](https://guides.rubyonrails.org/v6.1/active_job_basics.html#supported-types-for-arguments) for the 
-supported arguments.
 
 ## Hooks
 
@@ -468,7 +452,9 @@ You can register hooks to be called for certain lifecycle events in Exekutor. Th
 `ActiveSupport::Callbacks`.
 
 ```ruby
-class MyHook < ::Exekutor::Hook
+class MyHook 
+  include Exekutor::Hook
+  
   around_job_execution :instrument 
   after_job_failure {|_job, error| report_error error }
   after_fatal_error :report_error

@@ -106,13 +106,15 @@ module Exekutor
     # @param json_serializer [#dump] the serializer to use to convert hashes into JSON
     # @return [Array] the SQL bind parameters for inserting the specified job
     def job_sql_binds(job, scheduled_at, json_serializer)
-      if job.queue_name && job.queue_name.length > Queue::MAX_NAME_LENGTH
+      if job.queue_name.blank?
+        raise Error, "The queue must be set"
+      elsif job.queue_name && job.queue_name.length > Queue::MAX_NAME_LENGTH
         raise Error, "The queue name \"#{value}\" is too long, the limit is #{Queue::MAX_NAME_LENGTH} characters"
       end
 
       options = exekutor_options job
       [
-        job.queue_name.presence || Exekutor.config.default_queue_name,
+        job.queue_name.presence,
         job_priority(job),
         scheduled_at,
         job.job_id,
@@ -151,10 +153,8 @@ module Exekutor
         priority
       elsif priority.nil?
         Exekutor.config.default_queue_priority
-      elsif priority.is_a? Symbol
-        Exekutor.config.priority_for_name priority
       else
-        raise Error, "Job priority must be an Integer or a Symbol"
+        raise Error, "Job priority must be an Integer or nil"
       end
     end
 

@@ -3,7 +3,6 @@ Exekutor.configure do
 
   # config.logger = Logger.new("log/exekutor.log")
   <%= default_config = Exekutor::Configuration.new
-      default_config.named_priorities = {highest: 1, high: 10_000, low: 20_000, lowest: 32_767}
       Exekutor::Configuration.__option_names
                              .without(:logger, :base_record_class_name, :json_serializer, :polling_jitter,
                                       :max_execution_thread_idletime, :healthcheck_handler)

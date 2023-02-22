@@ -12,15 +12,10 @@ module Exekutor
 end
 
 require_relative "exekutor/queue"
-require_relative "active_job/queue_adapters/exekutor_adapter"
 
 require_relative "exekutor/plugins"
 require_relative "exekutor/configuration"
 require_relative "exekutor/job_options"
-
-require_relative "exekutor/info/worker"
-require_relative "exekutor/job"
-require_relative "exekutor/job_error"
 
 require_relative "exekutor/internal/database_connection"
 require_relative "exekutor/internal/logger"
@@ -36,6 +31,19 @@ require_relative "exekutor/cleanup"
 require_relative "exekutor/internal/healthcheck_server"
 require_relative "exekutor/hook"
 require_relative "exekutor/worker"
+
+ActiveSupport.on_load(:active_job) do
+  require_relative "active_job/queue_adapters/exekutor_adapter"
+end
+
+ActiveSupport.on_load(:active_record) do
+  # Wait until the Rails app is initialized so Exekutor.config.base_record_class can be set.
+  ActiveSupport.on_load(:after_initialize) do
+    require_relative "exekutor/info/worker"
+    require_relative "exekutor/job"
+    require_relative "exekutor/job_error"
+  end
+end
 
 Exekutor.private_constant "Internal"
 ActiveSupport.run_load_hooks(:exekutor, Exekutor)

@@ -2,7 +2,9 @@ raise Exekutor::Plugins::LoadError, "Appsignal not found, is the gem loaded?" un
 
 module Exekutor
   module Plugins
-    class Appsignal < Hook
+    # Hooks to send job execution info and raised errors to Appsignal
+    class Appsignal
+      include Hook
       before_shutdown { ::Appsignal.stop("exekutor") }
 
       around_job_execution :invoke_with_instrumentation

@@ -49,10 +49,13 @@ Gem::Specification.new do |spec|
   spec.add_dependency "terminal-table", "~> 3.0"
 
   spec.add_development_dependency "brakeman"
+  spec.add_development_dependency "combustion", "~> 1.3"
   spec.add_development_dependency "minitest", "~> 5.0"
   spec.add_development_dependency "minitest-reporters"
+  spec.add_development_dependency "mocha"
   spec.add_development_dependency "rubocop", "~> 1.21"
   spec.add_development_dependency "simplecov"
+  spec.add_development_dependency "sqlite3"
   spec.add_development_dependency "yard"
   spec.add_development_dependency "yard-activesupport-concern"
 end

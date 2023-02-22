@@ -32,12 +32,12 @@ module Exekutor
 
       # Executes an +:on+ callback with the given type.
       def self.on(type, *args)
-        ::Exekutor::hooks.send(:run_callbacks, :on, type, *args)
+        ::Exekutor.hooks.send(:run_callbacks, :on, type, *args)
       end
 
       # Executes the +:before+, +:around+, and +:after+ callbacks with the given type.
       def self.run(type, *args, &block)
-        ::Exekutor::hooks.send(:with_callbacks, type, *args, &block)
+        ::Exekutor.hooks.send(:with_callbacks, type, *args, &block)
       end
     end
   end

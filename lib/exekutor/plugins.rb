@@ -4,7 +4,7 @@ module Exekutor
   end
 
   def self.load_plugin(name)
-    if File.exists? File.join(__dir__, "plugins/#{name}.rb")
+    if File.exist? File.join(__dir__, "plugins/#{name}.rb")
       require_relative "plugins/#{name}"
     else
       raise Plugins::LoadError, "The #{name} plugin does not exist. Have you spelled it correctly?"

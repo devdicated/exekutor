@@ -1,8 +1,11 @@
+# frozen_string_literal: true
+
 module Exekutor
   # Defines hooks for Exekutor.
   #
   # @example Define and register hooks
-  #    class ExekutorHooks < ::Exekutor::Hook
+  #    class ExekutorHooks
+  #      include Exekutor::Hook
   #      around_job_execution :instrument
   #      after_job_failure {|_job, error| report_error error }
   #      after_fatal_error :report_error
@@ -17,122 +20,27 @@ module Exekutor
   #    end
   #
   #    Exekutor.hooks.register ExekutorHooks
-  class Hook
-    cattr_reader :__callback_names, default: [:before_enqueue, :around_enqueue, :after_enqueue,
-                                              :before_job_execution, :around_job_execution, :after_job_execution,
-                                              :on_job_failure, :on_fatal_error,
-                                              :before_startup, :after_startup,
-                                              :before_shutdown, :after_shutdown]
-    cattr_reader :__callbacks, default: Hash.new { |h, k| h[k] = [] }
+  module Hook
+    extend ActiveSupport::Concern
 
-    # Adds a callback.
-    # @param type [Symbol] the callback to register
-    # @param methods [Symbol] the method(s) to call
-    # @yield the block to call
-    def self.add_callback(type, *methods, &callback)
-      unless __callback_names.include? type
-        raise Error, "Invalid callback type: #{type} (Expected one of: #{__callback_names.map(&:inspect).join(", ")}"
+    CALLBACK_NAMES = %i[
+      before_enqueue around_enqueue after_enqueue before_job_execution around_job_execution after_job_execution
+      on_job_failure on_fatal_error before_startup after_startup before_shutdown after_shutdown
+    ].freeze
+    private_constant "CALLBACK_NAMES"
+
+    included do
+      class_attribute :__callbacks, default: Hash.new { |h, k| h[k] = [] }
+
+      CALLBACK_NAMES.each do |name|
+        module_eval <<-RUBY, __FILE__, __LINE__ + 1
+          def self.#{name}(*methods, &callback)
+            add_callback! :#{name}, methods, callback
+          end
+        RUBY
       end
 
-      add_callback! type, methods, callback
-      true
-    end
-
-    # @!method before_enqueue
-    #   Registers a callback to be called before a job is enqueued.
-    #   @param methods [Symbol] the method(s) to call
-    #   @yield the block to call
-    #   @yieldparam job [ActiveJob::Base] the job to enqueue
-    #   @return [void]
-
-    # @!method after_enqueue
-    #   Registers a callback to be called after a job is enqueued.
-    #   @param methods [Symbol] the method(s) to call
-    #   @yield the block to call
-    #   @yieldparam job [ActiveJob::Base] the enqueued job
-    #   @return [void]
-
-    # @!method around_enqueue
-    #   Registers a callback to be called when a job is enqueued. You must call +yield+ from the callback.
-    #   @param methods [Symbol] the method(s) to call
-    #   @yield the block to call
-    #   @yieldparam job [ActiveJob::Base] the job to enqueue
-    #   @return [void]
-
-
-    # @!method before_job_execution
-    #   Registers a callback to be called before a job is executed.
-    #   @param methods [Symbol] the method(s) to call
-    #   @yield the block to call
-    #   @yieldparam job [Hash] the job to execute
-    #   @return [void]
-
-    # @!method after_job_execution
-    #   Registers a callback to be called after a job is executed.
-    #   @param methods [Symbol] the method(s) to call
-    #   @yield the block to call
-    #   @yieldparam job [Hash] the executed job
-    #   @return [void]
-
-    # @!method around_job_execution
-    #   Registers a callback to be called when a job is executed. You must call +yield+ from the callback.
-    #   @param methods [Symbol] the method(s) to call
-    #   @yield the block to call
-    #   @yieldparam job [Hash] the job to execute
-    #   @return [void]
-
-
-    # @!method on_job_failure
-    #   Registers a callback to be called when a job raises an error.
-    #   @param methods [Symbol] the method(s) to call
-    #   @yield the block to call
-    #   @yieldparam job [Hash] the job that was executed
-    #   @yieldparam error [StandardError] the error that was raised
-    #   @return [void]
-
-    # @!method on_fatal_error
-    #   Registers a callback to be called when an error is raised from a worker outside a job.
-    #   @param methods [Symbol] the method(s) to call
-    #   @yield the block to call
-    #   @yieldparam error [StandardError] the error that was raised
-    #   @return [void]
-
-
-    # @!method before_startup
-    #   Registers a callback to be called before a worker is starting up.
-    #   @param methods [Symbol] the method(s) to call
-    #   @yield the block to call
-    #   @yieldparam worker [Worker] the worker
-    #   @return [void]
-
-    # @!method after_startup
-    #   Registers a callback to be called after a worker has started up.
-    #   @param methods [Symbol] the method(s) to call
-    #   @yield the block to call
-    #   @yieldparam worker [Worker] the worker
-    #   @return [void]
-
-
-    # @!method before_shutdown
-    #   Registers a callback to be called before a worker is shutting down.
-    #   @param methods [Symbol] the method(s) to call
-    #   @yield the block to call
-    #   @yieldparam worker [Worker] the worker
-    #   @return [void]
-
-    # @!method after_shutdown
-    #   Registers a callback to be called after a worker has shutdown.
-    #   @param methods [Symbol] the method(s) to call
-    #   @yield the block to call
-    #   @yieldparam worker [Worker] the worker
-    #   @return [void]
-
-    self.__callback_names.each do |name|
-      module_eval <<-RUBY, __FILE__, __LINE__ + 1
-              def self.#{name}(*methods, &callback)
-                add_callback! :#{name}, methods, callback
-              end
-      RUBY
+      private_class_method :add_callback!
     end
 
     # Gets the registered callbacks
@@ -152,15 +60,112 @@ module Exekutor
       end
     end
 
-    private
+    class_methods do
+      # Adds a callback.
+      # @param type [Symbol] the callback to register
+      # @param methods [Symbol] the method(s) to call
+      # @yield the block to call
+      def add_callback(type, *methods, &callback)
+        unless CALLBACK_NAMES.include? type
+          raise Error, "Invalid callback type: #{type} (Expected one of: #{CALLBACK_NAMES.map(&:inspect).join(", ")}"
+        end
 
-    def self.add_callback!(type, methods, callback)
-      raise Error, "No method or callback block supplied" if methods.blank? && callback.nil?
-      raise Error, "Either a method or a callback block must be supplied" if methods.present? && callback.present?
-      methods&.each { |method| __callbacks[type] << [method, nil] }
-      __callbacks[type] << [nil, callback] if callback.present?
+        add_callback! type, methods, callback
+        true
+      end
+
+      # @!method before_enqueue
+      #   Registers a callback to be called before a job is enqueued.
+      #   @param methods [Symbol] the method(s) to call
+      #   @yield the block to call
+      #   @yieldparam job [ActiveJob::Base] the job to enqueue
+      #   @return [void]
+
+      # @!method after_enqueue
+      #   Registers a callback to be called after a job is enqueued.
+      #   @param methods [Symbol] the method(s) to call
+      #   @yield the block to call
+      #   @yieldparam job [ActiveJob::Base] the enqueued job
+      #   @return [void]
+
+      # @!method around_enqueue
+      #   Registers a callback to be called when a job is enqueued. You must call +yield+ from the callback.
+      #   @param methods [Symbol] the method(s) to call
+      #   @yield the block to call
+      #   @yieldparam job [ActiveJob::Base] the job to enqueue
+      #   @return [void]
+
+      # @!method before_job_execution
+      #   Registers a callback to be called before a job is executed.
+      #   @param methods [Symbol] the method(s) to call
+      #   @yield the block to call
+      #   @yieldparam job [Hash] the job to execute
+      #   @return [void]
+
+      # @!method after_job_execution
+      #   Registers a callback to be called after a job is executed.
+      #   @param methods [Symbol] the method(s) to call
+      #   @yield the block to call
+      #   @yieldparam job [Hash] the executed job
+      #   @return [void]
+
+      # @!method around_job_execution
+      #   Registers a callback to be called when a job is executed. You must call +yield+ from the callback.
+      #   @param methods [Symbol] the method(s) to call
+      #   @yield the block to call
+      #   @yieldparam job [Hash] the job to execute
+      #   @return [void]
+
+      # @!method on_job_failure
+      #   Registers a callback to be called when a job raises an error.
+      #   @param methods [Symbol] the method(s) to call
+      #   @yield the block to call
+      #   @yieldparam job [Hash] the job that was executed
+      #   @yieldparam error [StandardError] the error that was raised
+      #   @return [void]
+
+      # @!method on_fatal_error
+      #   Registers a callback to be called when an error is raised from a worker outside a job.
+      #   @param methods [Symbol] the method(s) to call
+      #   @yield the block to call
+      #   @yieldparam error [StandardError] the error that was raised
+      #   @return [void]
+
+      # @!method before_startup
+      #   Registers a callback to be called before a worker is starting up.
+      #   @param methods [Symbol] the method(s) to call
+      #   @yield the block to call
+      #   @yieldparam worker [Worker] the worker
+      #   @return [void]
+
+      # @!method after_startup
+      #   Registers a callback to be called after a worker has started up.
+      #   @param methods [Symbol] the method(s) to call
+      #   @yield the block to call
+      #   @yieldparam worker [Worker] the worker
+      #   @return [void]
+
+      # @!method before_shutdown
+      #   Registers a callback to be called before a worker is shutting down.
+      #   @param methods [Symbol] the method(s) to call
+      #   @yield the block to call
+      #   @yieldparam worker [Worker] the worker
+      #   @return [void]
+
+      # @!method after_shutdown
+      #   Registers a callback to be called after a worker has shutdown.
+      #   @param methods [Symbol] the method(s) to call
+      #   @yield the block to call
+      #   @yieldparam worker [Worker] the worker
+      #   @return [void]
+
+      def add_callback!(type, methods, callback)
+        raise Error, "No method or callback block supplied" if methods.blank? && callback.nil?
+        raise Error, "Either a method or a callback block must be supplied" if methods.present? && callback.present?
+
+        methods&.each { |method| __callbacks[type] << [method, nil] }
+        __callbacks[type] << [nil, callback] if callback.present?
+      end
     end
-
   end
-
 end
