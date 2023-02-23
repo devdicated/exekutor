@@ -32,14 +32,6 @@ module Exekutor
     included do
       class_attribute :__callbacks, default: Hash.new { |h, k| h[k] = [] }
 
-      CALLBACK_NAMES.each do |name|
-        module_eval <<-RUBY, __FILE__, __LINE__ + 1
-          def self.#{name}(*methods, &callback)
-            add_callback! :#{name}, methods, callback
-          end
-        RUBY
-      end
-
       private_class_method :add_callback!
     end
 
@@ -54,25 +46,13 @@ module Exekutor
           elsif callback.arity.zero?
             -> { instance.instance_exec(&callback) }
           else
-            -> (*args) { instance.instance_exec(*args, &callback) }
+            ->(*args) { instance.instance_exec(*args, &callback) }
           end
         end
       end
     end
 
     class_methods do
-      # Adds a callback.
-      # @param type [Symbol] the callback to register
-      # @param methods [Symbol] the method(s) to call
-      # @yield the block to call
-      def add_callback(type, *methods, &callback)
-        unless CALLBACK_NAMES.include? type
-          raise Error, "Invalid callback type: #{type} (Expected one of: #{CALLBACK_NAMES.map(&:inspect).join(", ")}"
-        end
-
-        add_callback! type, methods, callback
-        true
-      end
 
       # @!method before_enqueue
       #   Registers a callback to be called before a job is enqueued.
@@ -158,6 +138,27 @@ module Exekutor
       #   @yield the block to call
       #   @yieldparam worker [Worker] the worker
       #   @return [void]
+
+      CALLBACK_NAMES.each do |name|
+        module_eval <<-RUBY, __FILE__, __LINE__ + 1
+          def #{name}(*methods, &callback)
+            add_callback! :#{name}, methods, callback
+          end
+        RUBY
+      end
+
+      # Adds a callback.
+      # @param type [Symbol] the callback to register
+      # @param methods [Symbol] the method(s) to call
+      # @yield the block to call
+      def add_callback(type, *methods, &callback)
+        unless CALLBACK_NAMES.include? type
+          raise Error, "Invalid callback type: #{type} (Expected one of: #{CALLBACK_NAMES.map(&:inspect).join(", ")}"
+        end
+
+        add_callback! type, methods, callback
+        true
+      end
 
       def add_callback!(type, methods, callback)
         raise Error, "No method or callback block supplied" if methods.blank? && callback.nil?
