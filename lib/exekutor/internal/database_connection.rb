@@ -14,9 +14,7 @@ module Exekutor
       end
 
       def self.ensure_active!(connection = BaseRecord.connection)
-        unless connection.active?
-          connection.reconnect!
-        end
+        connection.reconnect! unless connection.active?
       end
     end
   end

@@ -62,7 +62,7 @@ class HookTest < Minitest::Test
 
   def test_callback_leaks
     hook_class = Class.new { include ::Exekutor::Hook }
-    hook_class.add_callback :before_startup, :nonexistent_method
+    hook_class.add_callback :before_startup, -> {}
 
     hook_class2 = Class.new { include ::Exekutor::Hook }
     assert_empty hook_class2.new.callbacks

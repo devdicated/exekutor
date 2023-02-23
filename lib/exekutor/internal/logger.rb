@@ -47,22 +47,24 @@ module Exekutor
     error = "#{err.class} – #{err.message}\nat #{@backtrace_cleaner.clean(err.backtrace).join("\n   ")}"
 
     unless config.quiet?
-      STDERR.puts Rainbow(message).bright.red if message
-      STDERR.puts Rainbow(error).red
+      $stderr.puts Rainbow(message).bright.red if message
+      $stderr.puts Rainbow(error).red
     end
-    unless ActiveSupport::Logger.logger_outputs_to?(logger, STDOUT)
-      logger.fatal message if message
-      logger.fatal error
+    unless ActiveSupport::Logger.logger_outputs_to?(logger, $stdout)
+      logger.error message if message
+      logger.error error
     end
   end
 
   # Gets the logger
   # @return [ActiveSupport::TaggedLogging]
-  mattr_reader :logger, default: ActiveSupport::TaggedLogging.new(ActiveSupport::Logger.new(STDOUT))
+  mattr_reader :logger, default: ActiveSupport::TaggedLogging.new(ActiveSupport::Logger.new($stdout))
 
   # Sets the logger
   # @param logger [ActiveSupport::Logger]
   def self.logger=(logger)
+    raise ArgumentError, "logger must be a logger" unless logger.is_a? Logger
+
     @logger = if logger.is_a? ActiveSupport::TaggedLogging
                 logger
               else

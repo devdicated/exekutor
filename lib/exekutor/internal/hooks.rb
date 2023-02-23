@@ -45,7 +45,12 @@ module Exekutor
   # Prints the error to STDERR and the log, and calls the :on_fatal_error hooks.
   def self.on_fatal_error(error, message = nil)
     Exekutor.print_error(error, message)
+    return if defined?(@calling_fatal_error_hook) && @calling_fatal_error_hook
+
+    @calling_fatal_error_hook = true
     Internal::Hooks.on(:fatal_error, error)
+  ensure
+    @calling_fatal_error_hook = false
   end
 
   # Exekutor.hooks.register do

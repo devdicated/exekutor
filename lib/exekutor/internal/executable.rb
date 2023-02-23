@@ -41,7 +41,7 @@ module Exekutor
           raise error
         end
         delay = (9 + @consecutive_errors.value ** 2.5)
-        delay += delay * ((rand(11) - 5) / 100.0)
+        delay += delay * (rand(-5..5) / 100.0)
         delay.clamp(10.0, 600.0)
       end
 

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "test_helper"
 class PluginTest < Minitest::Test
 
   def test_appsignal_plugin

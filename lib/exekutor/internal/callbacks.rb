@@ -12,8 +12,10 @@ module Exekutor
     #        run_callbacks :on, :event, "Callback arg"
     #      end
     #
-    #      def with_callbacks
-    #        run_callbacks :another_event, self
+    #      def emit_another_event
+    #        with_callbacks :another_event, self do |self_arg|
+    #          puts "another event"
+    #        end
     #      end
     #    end
     #    MyClass.new.on_event(12) {|str, int| puts "event happened: #{str}, #{int}" }
@@ -56,40 +58,32 @@ module Exekutor
         if type == :around
           # Chain all callbacks together, ending with the original given block
           callbacks.inject(-> { yield(*args) }) do |next_callback, (callback, extra_args)|
-            if callback.arity.positive?
-              lambda do
-                callback.call(*(args + extra_args)) { next_callback.call }
-              rescue StandardError => err
-                Exekutor.on_fatal_error err, "[Executor] Callback error!"
-                next_callback.call
-              end
-            else
-              lambda do
-                callback.call { next_callback.call }
-              rescue StandardError => err
-                Exekutor.on_fatal_error err, "[Executor] Callback error!"
-                next_callback.call
-              end
+            callback_args = if callback.arity.zero?
+                              []
+                            else
+                              args + extra_args
+                            end
+            lambda do
+              has_yielded = false
+              callback.call(*callback_args) { has_yielded = true; next_callback.call }
+              raise MissingYield, "Callback did not yield!" unless has_yielded
+            rescue StandardError => err
+              raise if err.is_a? MissingYield
+              Exekutor.on_fatal_error err, "[Executor] Callback error!"
+              next_callback.call
             end
           end.call
           return
         end
         iterator = type == :after ? :each : :reverse_each
         callbacks.send(iterator) do |(callback, extra_args)|
-          begin
-            if callback.arity.zero?
-              callback.call
-            else
-              callback.call(*(args + extra_args))
-            end
-          rescue StandardError => err
-            if action == :fatal_error
-              # Just print the error to prevent an infinite loop
-              Exekutor.print_error err, "[Executor] Callback error!"
-            else
-              Exekutor.on_fatal_error err, "[Executor] Callback error!"
-            end
+          if callback.arity.zero?
+            callback.call
+          else
+            callback.call(*(args + extra_args))
           end
+        rescue StandardError => err
+          Exekutor.on_fatal_error err, "[Executor] Callback error!"
         end
         nil
       end
@@ -136,6 +130,9 @@ module Exekutor
 
       # Raised when registering a callback fails
       class Error < Exekutor::Error; end
+
+      # Raised when an around callback does not yield
+      class MissingYield < Exekutor::Error; end
     end
   end
 end
