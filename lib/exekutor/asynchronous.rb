@@ -21,6 +21,7 @@ module Exekutor
     included do
       mattr_reader :__async_class_methods, instance_accessor: false, default: {}
       mattr_reader :__async_instance_methods, instance_accessor: false, default: {}
+      private_class_method :perform_asynchronously
     end
 
     class_methods do
@@ -35,16 +36,16 @@ module Exekutor
       # @param class_method [Boolean] whether the method is a class method.
       # @raise [Error] if the method could not be replaced with the asynchronous version
       def perform_asynchronously(method_name, alias_to: "__immediately_#{method_name}", class_method: false)
-        raise Error, "method_name must be a Symbol (actual: #{method_name.class.name})" unless method_name.is_a? Symbol
-        raise Error, "alias_to must be present" unless alias_to.present?
+        raise ArgumentError, "method_name must be a Symbol (actual: #{method_name.class.name})" unless method_name.is_a? Symbol
+        raise ArgumentError, "alias_to must be present" unless alias_to.present?
         if class_method
-          raise Error, "##{method_name} does not exist" unless respond_to? method_name, true
+          raise ArgumentError, "##{method_name} does not exist" unless respond_to? method_name, true
 
           delegate = singleton_class
           definitions = __async_class_methods
         else
           unless method_defined?(method_name, true) || private_method_defined?(method_name, true)
-            raise Error, "##{method_name} does not exist"
+            raise ArgumentError, "##{method_name} does not exist"
           end
 
           delegate = self
@@ -59,16 +60,16 @@ module Exekutor
           error = Asynchronous.validate_args(self, alias_to, *args, **kwargs)
           raise error if error
           raise ArgumentError, "Cannot asynchronously execute with a block argument" if block_given?
-          AsyncMethodJob.perform_later self, method_name, *args, **kwargs
+          AsyncMethodJob.perform_later self, method_name, [args, kwargs.presence]
         end
 
         definitions[method_name] = alias_to
         if delegate.public_method_defined?(alias_to)
-          public method_name
+          delegate.send :public, method_name
         elsif delegate.protected_method_defined?(alias_to)
-          protected method_name
+          delegate.send :protected, method_name
         else
-          private method_name
+          delegate.send :private, method_name
         end
       end
     end
@@ -99,6 +100,7 @@ module Exekutor
         elsif type == :keyreq
           accepts_keywords = true
           missing_keywords << name if kwargs.exclude?(name)
+          unknown_keywords.delete(name)
         elsif type == :key
           accepts_keywords = true
           unknown_keywords.delete(name)
@@ -137,10 +139,15 @@ module Exekutor
 
       # Calls the original, synchronous method
       # @!visibility private
-      def perform(object, method, *args, **kwargs)
+      def perform(object, method, args)
         check_object! object
         method_alias = check_method! object, method
-        object.__send__(method_alias, *args, **kwargs)
+        args, kwargs = args
+        if kwargs
+          object.__send__(method_alias, *args, **kwargs)
+        else
+          object.__send__(method_alias, *args)
+        end
       end
 
       private
@@ -176,6 +183,6 @@ module Exekutor
     end
 
     # Raised when an error occurs while configuring or executing asynchronous methods
-    class Error < Exekutor::Error; end
+    class Error < Exekutor::DiscardJob; end
   end
 end

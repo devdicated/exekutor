@@ -60,10 +60,10 @@ module Exekutor
         @exekutor_job_options = options
       end
 
-      # Sets the exekutor options that apply to all instances of this job. These options may be overwritten by +#set+.
+      # Gets the exekutor options that apply to all instances of this job. These options may be overwritten by +#set+.
       # @return [Hash<Symbol, Object>] the options
       def exekutor_job_options
-        @exekutor_job_options
+        @exekutor_job_options if defined?(@exekutor_job_options)
       end
 
       # Validates the exekutor job options passed to {#exekutor_options} and +#set+

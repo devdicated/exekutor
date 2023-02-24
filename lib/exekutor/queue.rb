@@ -17,28 +17,30 @@ module Exekutor
     MAX_NAME_LENGTH = 63
 
     # Adds a job to the queue, scheduled to perform immediately
-    # @param job [ActiveJob::Base] the job to enqueue
+    # @param jobs [Array<ActiveJob::Base>] the jobs to enqueue
     # @return [void]
-    def push(job)
-      create_record(job)
+    def push(*jobs)
+      create_records(jobs)
     end
 
     # Adds a job to the queue, scheduled to be performed at the indicated time
-    # @param job [ActiveJob::Base] the job to enqueue
+    # @param jobs [Array<ActiveJob::Base>] the jobs to enqueue
     # @param timestamp [Time,Date,Integer,Float] when the job should be performed
     # @return [void]
-    def schedule_at(job, timestamp)
-      create_record(job, scheduled_at: timestamp)
+    def schedule_at(*jobs, timestamp)
+      create_records(jobs, scheduled_at: timestamp)
     end
 
     private
 
-    # Creates a {Exekutor::Job} record for the specified job, scheduled at the indicated time
-    # @param job [ActiveJob::Base] the job to enqueue
+    # Creates {Exekutor::Job} records for the specified jobs, scheduled at the indicated time
+    # @param jobs [Array<ActiveJob::Base>] the jobs to enqueue
     # @param scheduled_at [Time,Date,Integer,Float] when the job should be performed
     # @return [void]
-    def create_record(job, scheduled_at: nil)
-      raise ArgumentError, "job must be an ActiveJob" unless job.is_a? ActiveJob::Base
+    def create_records(jobs, scheduled_at: nil)
+      unless jobs.is_a?(Array) && jobs.all? { |job| job.is_a?(ActiveJob::Base) }
+        raise ArgumentError, "jobs must be an array with ActiveJob items"
+      end
 
       if scheduled_at.nil?
         scheduled_at = Time.now.to_i
@@ -49,37 +51,7 @@ module Exekutor
         when Time
           scheduled_at = scheduled_at.to_f
         when Date
-          scheduled_at = scheduled_at.to_time.to_f
-        else
-          raise ArgumentError, "scheduled_at must be an epoch, time, or date (was: #{scheduled_at.class})"
-        end
-      end
-
-      json_serializer = Exekutor.config.load_json_serializer
-      Internal::Hooks.run :enqueue, job do
-        Exekutor::Job.connection.exec_query <<~SQL, ACTION_NAME, job_sql_binds(job, scheduled_at, json_serializer), prepare: true
-          INSERT INTO exekutor_jobs ("queue", "priority", "scheduled_at", "active_job_id", "payload", "options") VALUES ($1, $2, to_timestamp($3), $4, $5, $6) RETURNING id;
-        SQL
-      end
-    end
-
-    # Creates {Exekutor::Job} records for the specified jobs, scheduled at the indicated time
-    # @param jobs [Array<ActiveJob::Base>] the jobs to enqueue
-    # @param scheduled_at [Time,Date,Integer,Float] when the job should be performed
-    # @return [void]
-    def create_records(jobs, scheduled_at: nil)
-      raise ArgumentError, "jobs must be an array" unless jobs.is_a? Array
-
-      if scheduled_at.nil?
-        scheduled_at = Time.now.to_i
-      else
-        case scheduled_at
-        when Integer
-          raise ArgumentError, "scheduled_at must be a valid epoch" unless scheduled_at.positive?
-        when Time
-          scheduled_at = scheduled_at.to_f
-        when Date
-          scheduled_at = scheduled_at.to_time.to_f
+          scheduled_at = scheduled_at.at_beginning_of_day.to_f
         else
           raise ArgumentError, "scheduled_at must be an epoch, time, or date"
         end
@@ -87,17 +59,22 @@ module Exekutor
 
       json_serializer = Exekutor.config.load_json_serializer
 
-      insert_statements = jobs.map do |job|
-        raise ArgumentError "jobs must contain only ActiveJobs" unless job.is_a? ActiveJob::Base
-
-        Exekutor::Job.sanitize_sql_for_assignment(
-          ["(?, ?, to_timestamp(?), ?, ?::jsonb, ?::jsonb)", *job_sql_binds(job, scheduled_at, json_serializer)]
-        )
+      Internal::Hooks.run :enqueue, jobs do
+        if jobs.one?
+          Exekutor::Job.connection.exec_query <<~SQL, ACTION_NAME, job_sql_binds(jobs.first, scheduled_at, json_serializer), prepare: true
+            INSERT INTO exekutor_jobs ("queue", "priority", "scheduled_at", "active_job_id", "payload", "options") VALUES ($1, $2, to_timestamp($3), $4, $5, $6) RETURNING id;
+          SQL
+        else
+          insert_statements = jobs.map do |job|
+            Exekutor::Job.sanitize_sql_for_assignment(
+              ["(?, ?, to_timestamp(?), ?, ?::jsonb, ?::jsonb)", *job_sql_binds(job, scheduled_at, json_serializer)]
+            )
+          end
+          Exekutor::Job.connection.insert <<~SQL, ACTION_NAME
+            INSERT INTO exekutor_jobs ("queue", "priority", "scheduled_at", "active_job_id", "payload", "options") VALUES #{insert_statements.join(",")}
+          SQL
+        end
       end
-      Exekutor::Job.connection.insert <<~SQL, ACTION_NAME
-        INSERT INTO exekutor_jobs ("queue", "priority", "scheduled_at", "active_job_id", "payload", "options") VALUES
-        #{insert_statements.join(",\n")}
-      SQL
     end
 
     # Converts the specified job to SQL bind parameters to insert it into the database
@@ -109,7 +86,7 @@ module Exekutor
       if job.queue_name.blank?
         raise Error, "The queue must be set"
       elsif job.queue_name && job.queue_name.length > Queue::MAX_NAME_LENGTH
-        raise Error, "The queue name \"#{value}\" is too long, the limit is #{Queue::MAX_NAME_LENGTH} characters"
+        raise Error, "The queue name \"#{job.queue_name}\" is too long, the limit is #{Queue::MAX_NAME_LENGTH} characters"
       end
 
       options = exekutor_options job
