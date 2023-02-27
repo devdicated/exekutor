@@ -7,7 +7,7 @@ module Exekutor
   class Job < Internal::BaseRecord
     self.implicit_order_column = :enqueued_at
 
-    belongs_to :worker, optional: true
+    belongs_to :worker, optional: true, class_name: "Info::Worker"
     has_many :execution_errors, class_name: "JobError"
 
     enum status: { pending: "p", executing: "e", completed: "c", failed: "f", discarded: "d" }

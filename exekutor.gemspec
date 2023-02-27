@@ -54,6 +54,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "minitest-reporters"
   spec.add_development_dependency "mocha"
   spec.add_development_dependency "pg", "~> 1.4"
+  spec.add_development_dependency "rack-test"
   spec.add_development_dependency "rubocop", "~> 1.21"
   spec.add_development_dependency "simplecov"
   spec.add_development_dependency "timecop"

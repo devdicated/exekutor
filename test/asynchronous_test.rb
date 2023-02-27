@@ -2,6 +2,7 @@
 
 require "test_helper"
 
+#noinspection RubyInstanceMethodNamingConvention
 class AsynchronousTest < Minitest::Test
   attr_reader :instance
 
@@ -11,8 +12,6 @@ class AsynchronousTest < Minitest::Test
   end
 
   def test_instance_method_without_args
-    assert_raises(ArgumentError) { instance.method_without_args :arg }
-
     enqueued_job = nil
     ActiveJob::Base.queue_adapter.expects(:enqueue).with { |job| enqueued_job = job }
     instance.method_without_args
@@ -34,8 +33,6 @@ class AsynchronousTest < Minitest::Test
   end
 
   def test_method_without_args
-    assert_raises(ArgumentError) { TestClass.method_without_args :arg }
-
     enqueued_job = nil
     ActiveJob::Base.queue_adapter.expects(:enqueue).with { |job| enqueued_job = job }
     TestClass.method_without_args
@@ -152,6 +149,8 @@ class AsynchronousTest < Minitest::Test
   end
 
   def test_extra_args
+    assert_raises(ArgumentError) { instance.method_without_args :arg }
+    assert_raises(ArgumentError) { TestClass.method_without_args :arg }
     assert_raises(ArgumentError) { TestClass.method_with_args 1, 2, 3, 4, 5, 6, 7, 8, 9 }
   end
 

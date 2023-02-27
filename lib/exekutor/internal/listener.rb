@@ -21,7 +21,7 @@ module Exekutor
       # @param pool [ThreadPoolExecutor] the thread pool to use
       # @param wait_timeout [Integer] the time to listen for notifications
       # @param set_db_connection_name [Boolean] whether to set the application name on the DB connection
-      def initialize(worker_id:, queues:, provider:, pool:, wait_timeout: 60, set_db_connection_name: false)
+      def initialize(worker_id:, queues: nil, provider:, pool:, wait_timeout: 60, set_db_connection_name: false)
         super()
         @config = {
           worker_id: worker_id,

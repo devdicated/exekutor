@@ -63,11 +63,17 @@ module Exekutor
         @thread_running.make_false
       end
 
+      # The Rack-app for the health-check server
       class App
 
         def initialize(worker, heartbeat_timeout)
           @worker = worker
           @heartbeat_timeout = heartbeat_timeout
+        end
+
+        def flatlined?
+          last_heartbeat = @worker.last_heartbeat
+          last_heartbeat.nil? || last_heartbeat < @heartbeat_timeout.minutes.ago
         end
 
         def call(env)
@@ -82,6 +88,7 @@ module Exekutor
             ]]
           when "/ready"
             running = @worker.running? && Exekutor::Job.connection.active?
+            running = false if running && flatlined?
             [(running ? 200 : 503), {}, [
               "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}"
             ]]

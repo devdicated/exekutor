@@ -47,20 +47,16 @@ module Exekutor
                                                       name: "exekutor-provider"
 
       @provider = Internal::Provider.new reserver: @reserver, executor: @executor, pool: provider_pool,
-                                         **config.slice(:polling_interval, :polling_jitter)
-                                                 .transform_keys(polling_jitter: :interval_jitter)
+                                         **provider_options(config)
+
       @executables = [@executor, @provider]
       if config.fetch(:enable_listener, true)
         listener = Internal::Listener.new worker_id: @record.id, provider: @provider, pool: provider_pool,
-                                          queues: config[:queues],
-                                          set_db_connection_name: config[:set_db_connection_name]
+                                          **listener_options(config)
         @executables << listener
       end
       if config[:healthcheck_port].to_i > 0
-        server = Internal::HealthcheckServer.new worker: self, pool: provider_pool, port: config[:healthcheck_port],
-                                                 **config.slice(:healthcheck_handler, :healthcheck_timeout)
-                                                         .transform_keys(healthcheck_handler: :handler,
-                                                                         healthcheck_timeout: :heartbeat_timeout)
+        server = Internal::HealthcheckServer.new worker: self, pool: provider_pool, **healthcheck_server_options(config)
         @executables << server
       end
       @executables.freeze
@@ -153,6 +149,36 @@ module Exekutor
     end
 
     private
+
+    def provider_options(worker_options)
+      worker_options.slice(:polling_interval, :polling_jitter).transform_keys do |key|
+        case key
+        when :polling_jitter
+          :interval_jitter
+        else
+          key
+        end
+      end
+    end
+
+    def listener_options(worker_options)
+      worker_options.slice(:queues, :set_db_connection_name)
+    end
+
+    def healthcheck_server_options(worker_options)
+      worker_options.slice(:healthcheck_port, :healthcheck_handler, :healthcheck_timeout).transform_keys do |key|
+        case key
+        when :healthcheck_port
+          :port
+        when :healthcheck_handler
+          :handler
+        when :healthcheck_timeout
+          :heartbeat_timeout
+        else
+          key
+        end
+      end
+    end
 
     # Waits for the execution threads to finish. Does nothing if +timeout+ is falsey. If +timeout+ is zero, the
     # execution threads are killed immediately. If +timeout+ is a positive +Numeric+, waits for the indicated amount of
