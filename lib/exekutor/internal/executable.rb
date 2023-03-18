@@ -5,7 +5,7 @@ module Exekutor
     # Mixin for an executable
     module Executable
       # Possible states
-      STATES = %i[pending started stopped crashed].freeze
+      STATES = %i[pending started stopped crashed killed].freeze
 
       def initialize
         @state = Concurrent::AtomicReference.new(:pending)
@@ -17,7 +17,8 @@ module Exekutor
       # - +:started+ the executable has started
       # - +:stopped+ the executable has stopped
       # - +:crashed+ the executable has crashed
-      # @return [:pending,:started,:stopped,:crashed] the state
+      # - +:killed+ the executable was killed
+      # @return [:pending,:started,:stopped,:crashed,:killed] the state
       def state
         @state.get
       end

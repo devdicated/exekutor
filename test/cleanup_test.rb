@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "timecop"
 
 class CleanupTest < Minitest::Test
   attr_reader :cleaner

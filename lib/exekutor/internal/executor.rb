@@ -8,17 +8,20 @@ module Exekutor
   module Internal
     # Executes jobs from a thread pool
     class Executor
-      include Executable, Callbacks, Logger
+      include Logger
+      include Callbacks
+      include Executable
 
       define_callbacks :after_execute, freeze: true
       attr_reader :pending_job_updates
 
-      def initialize(min_threads: 1, max_threads: default_max_threads, max_thread_idletime: 60,
+      def initialize(min_threads: 1, max_threads: default_max_threads, max_thread_idletime: 180,
                      delete_completed_jobs: false, delete_discarded_jobs: false, delete_failed_jobs: false)
         super()
         @executor = ThreadPoolExecutor.new name: "exekutor-job", fallback_policy: :abort, max_queue: max_threads,
                                            min_threads: min_threads, max_threads: max_threads,
                                            idletime: max_thread_idletime
+        @queued_job_ids = Concurrent::Array.new
         @active_job_ids = Concurrent::Array.new
         @pending_job_updates = Concurrent::Hash.new
         @options = {
@@ -44,12 +47,15 @@ module Exekutor
       def kill
         Thread.new { compare_and_set_state :started, :killed }
         @executor.kill
+
+        release_assigned_jobs
       end
 
       # Executes the job on one of the execution threads. Releases the job if there is no thread available to execute
       # the job.
       def post(job)
         @executor.post job, &method(:execute)
+        @queued_job_ids.append(job[:id])
       rescue Concurrent::RejectedExecutionError
         logger.error "Ran out of threads! Releasing job #{job[:id]}"
         update_job job, status: "p", worker_id: nil
@@ -78,6 +84,7 @@ module Exekutor
 
       # Executes the given job
       def execute(job)
+        @queued_job_ids.delete(job[:id])
         @active_job_ids.append(job[:id])
         Rails.application.reloader.wrap do
           DatabaseConnection.ensure_active!
@@ -127,7 +134,7 @@ module Exekutor
         end
 
         if lost_db_connection?(error)
-          # Try to release job
+          # Don't consider this as a failure, try again later.
           update_job job, status: "p", worker_id: nil
 
         elsif @options[discarded ? :delete_discarded_jobs : :delete_failed_jobs]
@@ -152,10 +159,8 @@ module Exekutor
           @pending_job_updates.merge!(job[:id] => attrs) do |_k, old, new|
             if old == :destroy
               old
-            elsif old.present?
-              old.merge!(new)
             else
-              new
+              old&.merge!(new) || new
             end
           end
         end
@@ -174,13 +179,18 @@ module Exekutor
         false
       end
 
+      def release_assigned_jobs
+        @queued_job_ids.each { |id| update_job({ id: id }, status: "p", worker_id: nil) }
+        @active_job_ids.each { |id| update_job({ id: id }, status: "p", worker_id: nil) }
+      end
+
       def queue_time_expired?(job)
         job[:options] && job[:options]["start_execution_before"] &&
           job[:options]["start_execution_before"].to_f <= Time.now.to_f
       end
 
       def lost_db_connection?(error)
-        [ActiveRecord::StatementInvalid, ActiveRecord::ConnectionNotEstablished].any?(&error.method(:is_a?)) &&
+        [ActiveRecord::StatementInvalid, ActiveRecord::ConnectionNotEstablished].any?(&error.method(:kind_of?)) &&
           !ActiveRecord::Base.connection.active?
       end
 
@@ -215,7 +225,8 @@ module Exekutor
 
       # Thrown when the job execution timeout expires. Inherits from Exception so it's less likely to be caught by
       # rescue statements.
-      class JobExecutionTimeout < Exception; end # rubocop:disable Lint/InheritException
+      class JobExecutionTimeout < Exception # rubocop:disable Lint/InheritException
+      end
     end
   end
 end

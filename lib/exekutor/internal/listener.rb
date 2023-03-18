@@ -34,6 +34,7 @@ module Exekutor
         @pool = pool
 
         @thread_running = Concurrent::AtomicBoolean.new false
+        @listening = Concurrent::AtomicBoolean.new false
       end
 
       # Starts the listener
@@ -65,7 +66,7 @@ module Exekutor
       # @return [Boolean]
       def listening_to_queue?(queue)
         queues = @config[:queues]
-        queues.nil? || queues.empty? || queues.include?(queue)
+        queues.empty? || queues.include?(queue)
       end
 
       # Starts the listener thread
@@ -89,19 +90,23 @@ module Exekutor
         end
       rescue StandardError => err
         Exekutor.on_fatal_error err, "[Listener] Runtime error!"
-        consecutive_errors.increment
+        set_state :crashed if err.is_a? UnsupportedDatabase
+
         if running?
+          consecutive_errors.increment
           delay = restart_delay
           logger.info "Restarting in %0.1f seconds…" % [delay]
           Concurrent::ScheduledTask.execute(delay, executor: @pool, &method(:run))
         end
       ensure
         @thread_running.make_false
+        @listening.make_false
       end
 
       # Listens for jobs. Blocks until the listener is stopped
       def wait_for_jobs(connection)
         while running?
+          @listening.make_true
           connection.wait_for_notify(@config[:wait_timeout]) do |channel, _pid, payload|
             throw :shutdown unless running?
             next unless channel == JOB_ENQUEUED_CHANNEL
@@ -135,6 +140,7 @@ module Exekutor
           # will perform the necessary cleanup tasks
           ActiveRecord::Base.connection_pool.remove(conn)
         end
+        DatabaseConnection.ensure_active! ar_conn
         pg_conn = ar_conn.raw_connection
 
         verify!(pg_conn)
@@ -150,13 +156,21 @@ module Exekutor
       # @raise [Error] if the connection is not an instance of +PG::Connection+ or is invalid.
       def verify!(pg_conn)
         unless pg_conn.is_a?(PG::Connection)
-          raise Error, "The Active Record database must be PostgreSQL in order to use the listener"
+          raise UnsupportedDatabase,
+                "The raw connection of the active record connection adapter must be an instance of PG::Connection"
         end
-        #   TODO check connection status
+      end
+
+      # For testing purposes
+      def listening?
+        @listening.true?
       end
 
       # Raised when an error occurs in the listener.
       class Error < Exekutor::Error; end
+
+      # Raised when the database connection is not an instance of PG::Connection.
+      class UnsupportedDatabase < Exekutor::Error; end
     end
   end
 end

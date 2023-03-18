@@ -87,7 +87,12 @@ module Exekutor
               RESPONSE
             ]]
           when "/ready"
-            running = @worker.running? && Exekutor::Job.connection.active?
+            running = @worker.running?
+            if running
+              Exekutor::Job.connection_pool.with_connection do |connection|
+                running = connection.active?
+              end
+            end
             running = false if running && flatlined?
             [(running ? 200 : 503), {}, [
               "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}"

@@ -85,7 +85,7 @@ class HealthcheckServerTest < Minitest::Test
 
   def test_ready_happy_flow
     worker.expects(running?: true, last_heartbeat: Time.now)
-    Exekutor::Job.expects(:connection).returns(mock(active?: true))
+    Exekutor::Job.connection_pool.expects(:with_connection).yields(mock(active?: true))
 
     get "/ready"
     assert last_response.ok?
@@ -100,7 +100,7 @@ class HealthcheckServerTest < Minitest::Test
 
   def test_ready_with_flatlined_worker
     worker.expects(running?: true, last_heartbeat: 601.seconds.ago)
-    Exekutor::Job.expects(:connection).returns(mock(active?: true))
+    Exekutor::Job.connection_pool.expects(:with_connection).yields(mock(active?: true))
 
     get "/ready"
     assert_equal 503, last_response.status
@@ -108,7 +108,7 @@ class HealthcheckServerTest < Minitest::Test
 
   def test_ready_with_inactive_connection
     worker.stubs(running?: true, last_heartbeat: Time.now)
-    Exekutor::Job.expects(:connection).returns(mock(active?: false))
+    Exekutor::Job.connection_pool.expects(:with_connection).yields(mock(active?: false))
 
     get "/ready"
     assert_equal 503, last_response.status

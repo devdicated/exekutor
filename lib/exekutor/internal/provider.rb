@@ -16,6 +16,9 @@ module Exekutor
       UNKNOWN = Object.new.freeze
       private_constant "UNKNOWN"
 
+      MAX_WAIT_TIMEOUT = 300
+      private_constant "MAX_WAIT_TIMEOUT"
+
       # Creates a new provider
       # @param reserver [Reserver] the job reserver
       # @param executor [Executor] the job executor
@@ -23,7 +26,7 @@ module Exekutor
       # @param polling_interval [Integer] the polling interval
       # @param interval_jitter [Float] the polling interval jitter
       def initialize(reserver:, executor:, pool:, polling_interval: 60,
-                     interval_jitter: polling_interval > 1 ? polling_interval * 0.1 : 0)
+                     interval_jitter: polling_interval.to_i > 1 ? polling_interval * 0.1 : 0)
         super()
         @reserver = reserver
         @executor = executor
@@ -43,8 +46,9 @@ module Exekutor
       def start
         return false unless compare_and_set_state :pending, :started
 
-        # Always poll at startup to fill up threads
-        @next_poll_at.set 1.second.from_now
+        # Always poll at startup to fill up threads, use small jitter so workers started at the same time dont hit
+        # the db at the same time
+        @next_poll_at.set (1 + 2 * Kernel.rand).second.from_now
         start_thread
         true
       end
@@ -117,12 +121,12 @@ module Exekutor
       # Does the provisioning of jobs to the executor. Blocks until the provider is stopped.
       def run
         return unless running? && @thread_running.make_true
-        DatabaseConnection.ensure_active!
 
+        DatabaseConnection.ensure_active!
         perform_pending_job_updates
         restart_abandoned_jobs
         catch(:shutdown) do
-          while running? do
+          while running?
             wait_for_event
             next unless reserve_jobs_now?
 
@@ -139,6 +143,7 @@ module Exekutor
           Concurrent::ScheduledTask.execute(delay, executor: @pool, &method(:run))
         end
       ensure
+        BaseRecord.connection_pool.release_connection
         @thread_running.make_false
       end
 
@@ -154,6 +159,7 @@ module Exekutor
         @event.wait timeout
       rescue StandardError => err
         Exekutor.on_fatal_error err, "[Provider] An error occurred while waiting"
+        sleep 0.1 if running?
       ensure
         throw :shutdown unless running?
         @event.reset
@@ -167,7 +173,7 @@ module Exekutor
         jobs = @reserver.reserve available_workers
         unless jobs.nil?
           begin
-            logger.debug "Reserved #{jobs.size} jobs"
+            logger.debug "Reserved #{jobs.size} job(s)"
             jobs.each(&@executor.method(:post))
           rescue Exception # rubocop:disable Lint/RescueException
             # Try to release all jobs before re-raising
@@ -203,7 +209,8 @@ module Exekutor
             end
           rescue ActiveRecord::StatementInvalid, ActiveRecord::ConnectionNotEstablished
             unless Exekutor::Job.connection.active?
-              # Connection lost again, avoid trying further updates
+              # Connection lost again, requeue update and avoid trying further updates
+              updates[id] ||= attrs
               return
             end
           end
@@ -216,7 +223,7 @@ module Exekutor
         jobs = @reserver.get_abandoned_jobs(@executor.active_job_ids)
         return if jobs&.size.to_i.zero?
 
-        logger.debug "Restarting #{jobs.size} abandoned job#{"s" if jobs.size > 1}"
+        logger.info "Restarting #{jobs.size} abandoned job#{"s" if jobs.size > 1}"
         jobs.each(&@executor.method(:post))
       end
 
@@ -225,38 +232,64 @@ module Exekutor
         @polling_interval.present?
       end
 
+      # @return [Time,nil] the 'scheduled at' value for the next job, or nil if unknown or if there is no pending job
+      def next_job_scheduled_at
+        at = @next_job_scheduled_at.get
+        if at == UNKNOWN
+          nil
+        else
+          # noinspection RubyMismatchedReturnType
+          at
+        end
+      end
+
+      # @return [Time,nil] When the next poll is scheduled, or nil if polling is disabled
+      def next_poll_scheduled_at
+        if polling_enabled?
+          @next_poll_at.update { |planned_at| planned_at || Time.now + polling_interval }
+        else
+          # noinspection RubyMismatchedReturnType
+          @next_poll_at.get
+        end
+      end
+
       # @return [Numeric] The timeout to wait until the next event
       def wait_timeout
-        next_job_scheduled_at = @next_job_scheduled_at.get
-        next_job_scheduled_at = nil if next_job_scheduled_at == UNKNOWN
+        return MAX_WAIT_TIMEOUT if @executor.available_workers.zero?
 
-        max_interval = if polling_enabled?
-                         @next_poll_at.update do |planned_at|
-                           planned_at || (Time.now + polling_interval)
-                         end.to_f - Time.now.to_f
-                       else
-                         60
-                       end
-        if next_job_scheduled_at.nil? || @executor.available_workers.zero?
-          max_interval
-        elsif next_job_scheduled_at <= Time.now || max_interval <= 0.001
+        next_job_at = next_job_scheduled_at
+        next_poll_at = next_poll_scheduled_at
+
+        timeout = [MAX_WAIT_TIMEOUT].tap do |timeouts|
+          # noinspection RubyMismatchedArgumentType
+          timeouts.append next_job_at - Time.now if next_job_at
+          # noinspection RubyMismatchedArgumentType
+          timeouts.append next_poll_at - Time.now if next_poll_at
+        end.min
+
+        if timeout <= 0.001
           0
         else
           # noinspection RubyMismatchedReturnType
-          [next_job_scheduled_at - Time.now, max_interval].min
+          timeout
         end
       end
 
       # @return [Boolean] Whether the `reserver` should be called.
       def reserve_jobs_now?
-        next_poll_at = @next_poll_at.get
-        if next_poll_at && next_poll_at < Time.now
-          @next_poll_at.update { polling_enabled? ? Time.now + polling_interval : nil }
+        next_poll_at = next_poll_scheduled_at
+        if next_poll_at && next_poll_at - Time.now <= 0.001
+          @next_poll_at.update { Time.now + polling_interval if polling_enabled? }
           return true
         end
 
-        next_job_at = @next_job_scheduled_at.get
-        next_job_at == UNKNOWN || (next_job_at && next_job_at <= Time.now)
+        next_job_at = next_job_scheduled_at
+        next_job_at && next_job_at <= Time.now
+      end
+
+      # @return [Float] Gets the polling interval jitter
+      def polling_interval_jitter
+        @interval_jitter
       end
 
       # Get the polling interval. If a jitter is configured, the interval is reduced or increased by `0.5 * jitter`.
@@ -264,10 +297,10 @@ module Exekutor
       def polling_interval
         raise "Polling is disabled" unless @polling_interval.present?
 
-        @polling_interval + if @interval_jitter.zero?
+        @polling_interval + if polling_interval_jitter.zero?
                               0
                             else
-                              (Kernel.rand - 0.5) * @interval_jitter
+                              (Kernel.rand - 0.5) * polling_interval_jitter
                             end
       end
     end
