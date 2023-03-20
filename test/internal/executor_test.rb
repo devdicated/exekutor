@@ -20,6 +20,7 @@ class ExecutorTest < Minitest::Test
 
   def test_kill
     executor.kill
+    sleep(0.01)
     assert_equal :killed, executor.state
   end
 

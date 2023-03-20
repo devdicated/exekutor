@@ -67,18 +67,16 @@ class QueueTest < Minitest::Test
 
   def test_custom_queue_timeout
     job = TestJobs::WithOptions.new
-    job.enqueue(queue_timeout: 1.hour)
     Timecop.freeze do
-      queue.push(job)
+      job.enqueue(queue_timeout: 1.hour)
       assert_equal [{ "start_execution_before" => 1.hour.from_now.to_f }], ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:options)
     end
   end
 
   def test_custom_execution_timeout
     job = TestJobs::WithOptions.new
-    job.enqueue(execution_timeout: 1.hour)
     Timecop.freeze do
-      queue.push(job)
+      job.enqueue(execution_timeout: 1.hour)
       assert_equal [{ "execution_timeout" => 3600.0 }], ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:options)
     end
   end

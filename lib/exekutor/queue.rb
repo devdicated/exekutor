@@ -107,10 +107,10 @@ module Exekutor
       return nil unless job.respond_to?(:exekutor_options)
 
       options = job.exekutor_options.stringify_keys
-      if options && options['queue_timeout']
-        options['start_execution_before'] = Time.now.to_f + options.delete('queue_timeout').to_f
+      if options && options["queue_timeout"]
+        options["start_execution_before"] = Time.now.to_f + options.delete("queue_timeout").to_f
       end
-      options['execution_timeout'] = options['execution_timeout'].to_f if options && options['execution_timeout']
+      options["execution_timeout"] = options["execution_timeout"].to_f if options && options["execution_timeout"]
 
       options
     end

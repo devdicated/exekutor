@@ -7,6 +7,8 @@ module Exekutor
   class Worker
     include Internal::Executable
 
+    attr_reader :record
+
     # Creates a new worker with the specified config and immediately starts it
     # @see #initialize
     #
@@ -104,7 +106,7 @@ module Exekutor
         rescue
           #ignored
         end
-        @stop_event&.set
+        @stop_event&.set if defined?(@stop_event)
       end
       true
     end
@@ -114,7 +116,7 @@ module Exekutor
     def kill
       Thread.new do
         @executables.reverse_each(&:stop)
-        @stop_event&.set
+        @stop_event&.set if defined?(@stop_event)
       end
       @executor.kill
       begin
@@ -168,14 +170,10 @@ module Exekutor
     def healthcheck_server_options(worker_options)
       worker_options.slice(:healthcheck_port, :healthcheck_handler, :healthcheck_timeout).transform_keys do |key|
         case key
-        when :healthcheck_port
-          :port
-        when :healthcheck_handler
-          :handler
         when :healthcheck_timeout
           :heartbeat_timeout
         else
-          key
+          key.to_s.gsub(/^healthcheck_/, "").to_sym
         end
       end
     end
