@@ -61,13 +61,23 @@ module Exekutor
         update_job job, status: "p", worker_id: nil
       end
 
-      # The number of available threads to execute jobs on. Returns 0 if the executor is not running.
-      def available_workers
+      # @return [Integer] the number of available threads to execute jobs on. Returns 0 if the executor is not running.
+      def available_threads
         if @executor.running?
           @executor.available_threads
         else
           0
         end
+      end
+
+      # @return [Integer] the minimum number of threads to execute jobs on.
+      def minimum_threads
+        @executor.min_length
+      end
+
+      # @return [Integer] the maximum number of threads to execute jobs on.
+      def maximum_threads
+        @executor.max_length
       end
 
       # @return [Array<String>] The ids of the jobs that are currently being executed

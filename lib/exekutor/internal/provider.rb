@@ -167,7 +167,7 @@ module Exekutor
 
       # Reserves jobs and posts them to the executor
       def reserve_and_execute_jobs
-        available_workers = @executor.available_workers
+        available_workers = @executor.available_threads
         return unless available_workers.positive?
 
         jobs = @reserver.reserve available_workers
@@ -255,7 +255,7 @@ module Exekutor
 
       # @return [Numeric] The timeout to wait until the next event
       def wait_timeout
-        return MAX_WAIT_TIMEOUT if @executor.available_workers.zero?
+        return MAX_WAIT_TIMEOUT if @executor.available_threads.zero?
 
         next_job_at = next_job_scheduled_at
         next_poll_at = next_poll_scheduled_at

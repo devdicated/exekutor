@@ -150,6 +150,18 @@ module Exekutor
       @record.last_heartbeat_at
     end
 
+    def thread_stats
+      available = @executor.available_threads
+      {
+        minimum: @executor.minimum_threads,
+        maximum: @executor.maximum_threads,
+        available: available,
+        usage_percent: if @executor.running?
+                         ((1 - (available.to_f / @executor.maximum_threads)) * 100).round(2)
+                       end
+      }
+    end
+
     private
 
     def provider_options(worker_options)

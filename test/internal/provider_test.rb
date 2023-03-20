@@ -32,7 +32,7 @@ class ProviderTest < Minitest::Test
     reserver.unstub(:reserve)
     wait_until_executables_started
 
-    executor.expects(:available_workers).at_least_once.returns(123)
+    executor.expects(:available_threads).at_least_once.returns(123)
     reserver.expects(:reserve).with(123).at_least_once
 
     provider.poll
@@ -43,7 +43,7 @@ class ProviderTest < Minitest::Test
     reserver.unstub(:reserve)
     wait_until_executables_started
 
-    executor.stubs(:available_workers).at_least_once.returns(123)
+    executor.stubs(:available_threads).at_least_once.returns(123)
     reserver.expects(:reserve).with(123).returns([{ id: "test-job-1" }, { id: "test-job-2" }, { id: "test-job-3" }])
 
     provider.send(:logger).expects(:debug).with("Reserved 3 job(s)")
@@ -69,7 +69,7 @@ class ProviderTest < Minitest::Test
     reserver.unstub(:reserve)
     wait_until_executables_started
 
-    executor.stubs(:available_workers).returns(1)
+    executor.stubs(:available_threads).returns(1)
     reserver.stubs(:reserve).with(1).returns([{ id: "test-job-1" }])
     executor.stubs(:post)
     # Silence log
@@ -94,7 +94,7 @@ class ProviderTest < Minitest::Test
 
     wait_until_executables_started
 
-    executor.stubs(:available_workers).returns(123)
+    executor.stubs(:available_threads).returns(123)
     reserver.expects(:reserve).with(123).returns(nil)
 
     provider.poll
@@ -183,7 +183,7 @@ class ProviderTest < Minitest::Test
     provider.send(:logger).expects(:info).with(regexp_matches(/^Restarting in \d+(.\d+)? seconds…$/))
     Concurrent::ScheduledTask.expects(:execute).with(kind_of(Numeric), executor: thread_pool)
 
-    executor.stubs(:available_workers).returns(3)
+    executor.stubs(:available_threads).returns(3)
     reserver.expects(:reserve).raises(error_class)
 
     wait_until_executables_started
@@ -202,7 +202,7 @@ class ProviderTest < Minitest::Test
     error_class = Class.new(StandardError) {}
     wait_until_executables_started
 
-    executor.stubs(:available_workers).returns(123)
+    executor.stubs(:available_threads).returns(123)
     reserver.stubs(:reserve).with(123).returns([{ id: "test-job-1" }, { id: "test-job-2" }])
 
     provider.send(:logger).stubs(:debug)

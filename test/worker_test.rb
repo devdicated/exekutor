@@ -7,7 +7,7 @@ class WorkerTest < Minitest::Test
 
   def setup
     super
-    @worker = Exekutor::Worker.start
+    @worker = Exekutor::Worker.start(max_threads: 2)
   end
 
   def teardown
@@ -140,6 +140,23 @@ class WorkerTest < Minitest::Test
     )
   ensure
     worker&.kill
+  end
+
+  def test_thread_stats
+    assert_equal(
+      { minimum: 1, maximum: 2, available: 2, usage_percent: 0 },
+      worker.thread_stats
+    )
+    worker.instance_variable_get(:@executor).stubs(:available_threads).returns(1)
+    assert_equal(
+      { minimum: 1, maximum: 2, available: 1, usage_percent: 50 },
+      worker.thread_stats
+    )
+    worker.instance_variable_get(:@executor).stubs(:available_threads).returns(0)
+    assert_equal(
+      { minimum: 1, maximum: 2, available: 0, usage_percent: 100 },
+      worker.thread_stats
+    )
   end
 
   def test_job_execution_heartbeat

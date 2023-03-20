@@ -84,6 +84,7 @@ module Exekutor
                 [Healthcheck]
                  - Use GET /ready to check whether the worker is running and connected to the DB
                  - Use GET /live to check whether the worker is running and is not hanging
+                 - Use GET /threads to check thread usage
               RESPONSE
             ]]
           when "/ready"
@@ -108,6 +109,13 @@ module Exekutor
             [(running ? 200 : 503), {}, [
               "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}; Heartbeat: #{last_heartbeat&.iso8601 || "null"}"
             ]]
+          when "/threads"
+            if @worker.running?
+              info = @worker.thread_stats
+              [(info ? 200 : 503), {}, [info.to_json]]
+            else
+              [503, {}, [{ error: "Worker not running" }.to_json]]
+            end
           else
             [404, {}, ["Not found"]]
           end

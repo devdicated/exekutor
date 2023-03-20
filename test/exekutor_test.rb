@@ -9,10 +9,13 @@ class ExekutorTest < Minitest::Test
   end
 
   def test_integration
-    worker = Exekutor::Worker.start
+    stub_logger = stub(debug: true, info: true)
+    stub_logger.stubs(:tagged).returns(stub_logger)
+    Exekutor.stubs(:logger).returns(stub_logger)
+    worker = Exekutor::Worker.start(queues: "integration-test-queue")
 
     TestJobs::Simple.executed = false
-    test_job = TestJobs::Simple.perform_later
+    test_job = TestJobs::Simple.set(queue: "integration-test-queue").perform_later
     assert Exekutor::Job.where(active_job_id: test_job.job_id).exists?
 
     # LISTEN/NOTIFY trigger is not added to test DB
@@ -21,7 +24,7 @@ class ExekutorTest < Minitest::Test
     wait_until { TestJobs::Simple.executed }
     assert TestJobs::Simple.executed
   ensure
-    worker.stop
+    worker&.stop
   end
 
   private

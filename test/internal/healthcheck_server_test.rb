@@ -114,6 +114,19 @@ class HealthcheckServerTest < Minitest::Test
     assert_equal 503, last_response.status
   end
 
+  def test_threads
+    worker.stubs(running?: true, thread_stats: {minimum: 1, maximum: 3, available: 3, usage_percent: 0})
+    get "/threads"
+    assert_equal 200, last_response.status
+  end
+
+  def test_threads_when_not_running
+    worker.stubs(running?: false)
+
+    get "/threads"
+    assert_equal 503, last_response.status
+  end
+
   def test_invalid_path
     get "/nonexisting"
     assert_equal 404, last_response.status

@@ -160,8 +160,15 @@ class ExecutorTest < Minitest::Test
     TestJobs::Blocking.block = false
   end
 
-  def test_available_workers
-    assert_equal 1, executor.available_workers
+  def test_minimum_maximum_workers
+    executor.stop
+    @executor = Exekutor.const_get(:Internal)::Executor.new(min_threads: 123, max_threads: 234)
+    assert_equal 123, executor.minimum_threads
+    assert_equal 234, executor.maximum_threads
+  end
+
+  def test_available_threads
+    assert_equal 1, executor.available_threads
 
     # Fills up worker
     TestJobs::Blocking.block = true
@@ -169,15 +176,15 @@ class ExecutorTest < Minitest::Test
     executor.post job
     wait_until_workers_started
 
-    assert_equal 0, executor.available_workers
+    assert_equal 0, executor.available_threads
 
     TestJobs::Blocking.block = false
     wait_until_workers_finished
 
-    assert_equal 1, executor.available_workers
+    assert_equal 1, executor.available_threads
 
     executor.stop
-    assert_equal 0, executor.available_workers
+    assert_equal 0, executor.available_threads
   ensure
     TestJobs::Blocking.block = false
   end
@@ -382,7 +389,7 @@ class ExecutorTest < Minitest::Test
   def wait_until_workers_finished
     wait_until do
       thread_pool = executor_thread_pool
-      thread_pool.queue_length.zero? && executor.available_workers == thread_pool.max_length
+      thread_pool.queue_length.zero? && executor.available_threads == thread_pool.max_length
     end
   end
 
