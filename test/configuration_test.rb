@@ -158,7 +158,7 @@ class ConfigurationTest < Minitest::Test
       delete_failed_jobs: config.delete_failed_jobs?,
       polling_interval: config.polling_interval,
       polling_jitter: config.polling_jitter,
-      healthcheck_handler: config.healthcheck_handler,
+      status_server_handler: config.status_server_handler,
       healthcheck_timeout: config.healthcheck_timeout
     }
     assert_equal expected, config.worker_options

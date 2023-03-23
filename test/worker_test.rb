@@ -76,11 +76,11 @@ class WorkerTest < Minitest::Test
     )
   end
 
-  def test_healthcheck_server_options
+  def test_status_server_options
     assert_equal(
       { port: 12345, handler: "HandlerName", heartbeat_timeout: 123 },
-      worker.send(:healthcheck_server_options, { healthcheck_port: 12345, healthcheck_handler: "HandlerName",
-                                                 healthcheck_timeout: 123, other_option: "test" })
+      worker.send(:status_server_options, { status_server_port: 12_345, status_server_handler: "HandlerName",
+                                            healthcheck_timeout: 123, other_option: "test" })
     )
   end
 
@@ -134,9 +134,9 @@ class WorkerTest < Minitest::Test
     worker.stop
     wait_until { worker.record.destroyed? }
 
-    worker = Exekutor::Worker.new(healthcheck_port: 123456)
+    worker = Exekutor::Worker.new(status_server_port: 123456)
     assert(
-      worker.instance_variable_get(:@executables).any? { |e| e.is_a? Exekutor.const_get(:Internal)::HealthcheckServer }
+      worker.instance_variable_get(:@executables).any? { |e| e.is_a? Exekutor.const_get(:Internal)::StatusServer }
     )
   ensure
     worker&.kill

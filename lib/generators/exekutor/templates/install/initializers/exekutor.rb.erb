@@ -5,7 +5,7 @@ Exekutor.configure do
   <%= default_config = Exekutor::Configuration.new
       Exekutor::Configuration.__option_names
                              .without(:logger, :base_record_class_name, :json_serializer, :polling_jitter,
-                                      :max_execution_thread_idletime, :healthcheck_handler)
+                                      :max_execution_thread_idletime, :status_server_handler)
                              .select {|name| default_config.respond_to?(name) }
                              .map {|name|  [name, default_config.send(name)] }
                              .filter {|(_name, value)| value.present?}

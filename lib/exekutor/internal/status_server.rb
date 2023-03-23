@@ -2,7 +2,7 @@
 module Exekutor
   module Internal
     # Serves a simple health check app
-    class HealthcheckServer
+    class StatusServer
       include Internal::Logger
       include Internal::Executable
 
@@ -39,7 +39,7 @@ module Exekutor
         elsif server&.respond_to? :stop
           server.stop
         elsif server
-          Exekutor.say! "Cannot shutdown healthcheck server, #{server.class.name} does not respond to shutdown or stop"
+          Exekutor.say! "Cannot shutdown status server, #{server.class.name} does not respond to shutdown or stop"
         end
       end
 
@@ -48,7 +48,7 @@ module Exekutor
       def run(worker, port)
         return unless state == :started && @thread_running.make_true
 
-        Exekutor.say "Starting healthcheck server at 0.0.0.0:#{port}… (Timeout: #{@heartbeat_timeout} minutes)"
+        Exekutor.say "Starting status server at 0.0.0.0:#{port}… (Timeout: #{@heartbeat_timeout} minutes)"
         @handler.run(App.new(worker, @heartbeat_timeout), Port: port, Host: "0.0.0.0", Silent: true,
                      Logger: ::Logger.new(File.open(File::NULL, "w")), AccessLog: []) do |server|
           @server.set server
@@ -81,7 +81,7 @@ module Exekutor
           when "/"
             [200, {}, [
               <<~RESPONSE
-                [Healthcheck]
+                [Exekutor]
                  - Use GET /ready to check whether the worker is running and connected to the DB
                  - Use GET /live to check whether the worker is running and is not hanging
                  - Use GET /threads to check thread usage
@@ -95,7 +95,7 @@ module Exekutor
               end
             end
             running = false if running && flatlined?
-            [(running ? 200 : 503), {}, [
+            [(running ? 200 : 503), { "Content-Type" => "text/plain" }, [
               "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}"
             ]]
           when "/live"
@@ -106,15 +106,15 @@ module Exekutor
             if running && (last_heartbeat.nil? || last_heartbeat < @heartbeat_timeout.minutes.ago)
               running = false
             end
-            [(running ? 200 : 503), {}, [
+            [(running ? 200 : 503), { "Content-Type" => "text/plain" }, [
               "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}; Heartbeat: #{last_heartbeat&.iso8601 || "null"}"
             ]]
           when "/threads"
             if @worker.running?
               info = @worker.thread_stats
-              [(info ? 200 : 503), {}, [info.to_json]]
+              [(info ? 200 : 503), { "Content-Type" => "application/json" }, [info.to_json]]
             else
-              [503, {}, [{ error: "Worker not running" }.to_json]]
+              [503, {"Content-Type" => "application/json"}, [{ error: "Worker not running" }.to_json]]
             end
           else
             [404, {}, ["Not found"]]

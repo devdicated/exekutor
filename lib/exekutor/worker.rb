@@ -28,8 +28,8 @@ module Exekutor
     # @option config [Float] :poling_jitter the polling jitter
     # @option config [Boolean] :set_db_connection_name whether the DB connection name should be set
     # @option config [Integer,Boolean] :wait_for_termination how long the worker should wait on jobs to be completed before exiting
-    # @option config [Integer] :healthcheck_port the port to run the healthcheck server on
-    # @option config [String] :healthcheck_handler The name of the rack handler to use for the healthcheck server
+    # @option config [Integer] :status_server_port the port to run the status server on
+    # @option config [String] :status_server_handler The name of the rack handler to use for the status server
     # @option config [Integer] :healthcheck_timeout The timeout of a worker in minutes before the healthcheck server deems it as down
     def initialize(config = {})
       super()
@@ -43,7 +43,7 @@ module Exekutor
 
       provider_threads = 1
       provider_threads += 1 if config.fetch(:enable_listener, true)
-      provider_threads += 1 if config[:healthcheck_port].to_i > 0
+      provider_threads += 1 if config[:status_server_port].to_i > 0
 
       provider_pool = Concurrent::FixedThreadPool.new provider_threads, max_queue: provider_threads,
                                                       name: "exekutor-provider"
@@ -57,8 +57,8 @@ module Exekutor
                                           **listener_options(config)
         @executables << listener
       end
-      if config[:healthcheck_port].to_i > 0
-        server = Internal::HealthcheckServer.new worker: self, pool: provider_pool, **healthcheck_server_options(config)
+      if config[:status_server_port].to_i > 0
+        server = Internal::StatusServer.new worker: self, pool: provider_pool, **status_server_options(config)
         @executables << server
       end
       @executables.freeze
@@ -179,13 +179,13 @@ module Exekutor
       worker_options.slice(:queues, :set_db_connection_name)
     end
 
-    def healthcheck_server_options(worker_options)
-      worker_options.slice(:healthcheck_port, :healthcheck_handler, :healthcheck_timeout).transform_keys do |key|
+    def status_server_options(worker_options)
+      worker_options.slice(:status_server_port, :status_server_handler, :healthcheck_timeout).transform_keys do |key|
         case key
         when :healthcheck_timeout
           :heartbeat_timeout
         else
-          key.to_s.gsub(/^healthcheck_/, "").to_sym
+          key.to_s.gsub(/^status_server_/, "").to_sym
         end
       end
     end

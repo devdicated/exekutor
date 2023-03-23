@@ -11,7 +11,7 @@ which uses powerful PostgreSQL features for low latency and efficient locking;
 - Custom job options to limit execution time and prevent execution of stale jobs;
 - An `Asynchronous` module to execute plain ruby methods using active job;
 - Hooks to integrate your error monitoring system;
-- An HTTP healthcheck server.
+- An HTTP status server.
 
 ## Installation and set up
 
@@ -136,17 +136,17 @@ The number of seconds that an execution thread may be idle before being reclaime
 Exekutor.config.max_execution_thread_idletime = 60
 ```
 
-#### Healthcheck handler
+#### Status server handler
 
-The Rack handler to use for the healthcheck server
+The Rack handler to use for the status server
 
 ```ruby
-Exekutor.config.healthcheck_handler = "webrick"
+Exekutor.config.status_handler = "webrick"
 ```
 
 #### Healthcheck timeout
 
-The timeout in minutes after which the healthcheck server deems a worker to be down. The worker updates a heartbeat 
+The timeout in minutes after which the status server deems a worker to be down. The worker updates a heartbeat 
 every time it finishes a job and after polling for jobs. This heartbeat is used to check whether the worker is still 
 executing jobs. This means that the timeout should be longer than the execution time of your jobs.
 
@@ -224,14 +224,14 @@ exekutor:
   max_execution_thread_idletime: 60
 ```
 
-#### Healthcheck options
+#### Status server options
 
-The healthcheck server handler, the port to use, and the worker timeout.
+The status server handler, the port to use, and the worker timeout.
 
 ```yaml
 exekutor:
-  healthcheck_port: 10100
-  healthcheck_handler: webrick
+  status_server_port: 10100
+  status_server_handler: webrick
   healthcheck_timeout: 60
 ```
 
@@ -517,9 +517,9 @@ Exekutor::Worker.start(worker_options)
 - `:poling_jitter` – the polling jitter 
 - `:set_db_connection_name` – whether the DB connection name should be set
 - `:wait_for_termination` – how long the worker should wait on jobs to be completed before exiting
-- `:healthcheck_port` – the port to run the healthcheck server on 
-- `:healthcheck_handler` – The name of the rack handler to use for the healthcheck server
-- `:healthcheck_timeout` – The timeout of a worker in minutes before the healthcheck server deems it as down
+- `:status_server_port` – the port to run the status server on 
+- `:status_server_handler` – The name of the rack handler to use for the status server
+- `:healthcheck_timeout` – The timeout of a worker in minutes before the status server deems it as down
 
 The default values for most of the options can be fetched by:
 ```ruby
@@ -616,9 +616,9 @@ There is only 1 error monitoring plugin for now: [Appsignal](https://www.appsign
 Exekutor.load_plugin :appsignal
 ```
 
-### Healthcheck server
+### Status server
 
-Use the healthcheck server to check if your worker is running by `curl localhost:[port]/ready` or `…/live`.
+Use the status server to check if your worker is running by `curl localhost:[port]/ready` or `…/live`.
 
 The `ready` endpoint checks if the worker is running and if the database connection is active.
 The `live` endpoint checks if the worker is running and is active by looking at the worker heartbeat.

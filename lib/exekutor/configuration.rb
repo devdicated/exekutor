@@ -262,25 +262,27 @@ module Exekutor
 
     # @!macro
     #   @!method $1?
-    #     The rack handler for the healthcheck server
+    #     The rack handler for the status server
     #     === Default value:
     #     webrick
     #     @return [String]
     #   @!method $1=(value)
-    #     Sets the rack handler for the healthcheck server. The handler should respond to +#shutdown+ or +#stop+.
+    #     Sets the rack handler for the status server. The handler should respond to +#shutdown+ or +#stop+.
     #     @param value [String] the name of the handler
     #     @return [self]
-    define_option :healthcheck_handler, default: "webrick", type: String
+    define_option :status_server_handler, default: "webrick", type: String
 
     # @!macro
     #   @!method $1?
-    #     The heartbeat timeout for the healthcheck server, in minutes. If the heartbeat of a worker is older than this
-    #     timeout, the healthcheck server will respond with a 503 status indicating the service is down.
+    #     The heartbeat timeout for the `/live` endpoint of the status server, in minutes. If the heartbeat of a worker
+    #     is older than this timeout, the status server will respond with a 503 status indicating the service is
+    #     down.
     #     === Default value:
     #     30
     #     @return [Integer]
     #   @!method $1=(value)
-    #     Sets the heartbeat timeout for the healthcheck server, in minutes. Must be between 2 and 1440 (24 hours).
+    #     Sets the heartbeat timeout for the `/live` endpoint of the status server, in minutes. Must be between 2
+    #     and 1440 (24 hours).
     #     @param value [Integer] The timeout in minutes
     #     @return [self]
     define_option :healthcheck_timeout, default: 30, type: Integer, range: 2..1440
@@ -309,7 +311,7 @@ module Exekutor
         %i[enable_listener delete_completed_jobs delete_discarded_jobs delete_failed_jobs].each do |option|
           opts[option] = send(:"#{option}?") ? true : false
         end
-        %i[polling_interval polling_jitter healthcheck_handler healthcheck_timeout].each do |option|
+        %i[polling_interval polling_jitter status_server_handler healthcheck_timeout].each do |option|
           opts[option] = send(option)
         end
       end

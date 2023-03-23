@@ -3,7 +3,7 @@
 require_relative "../rails_helper"
 require 'net/http'
 
-class HealthcheckServerTest < Minitest::Test
+class StatusServerTest < Minitest::Test
   include Rack::Test::Methods
 
   attr_reader :worker, :pool, :server, :port
@@ -14,7 +14,7 @@ class HealthcheckServerTest < Minitest::Test
   end
 
   def app
-    Exekutor.const_get(:Internal)::HealthcheckServer::App.new(worker, 10)
+    Exekutor.const_get(:Internal)::StatusServer::App.new(worker, 10)
   end
 
   def setup
@@ -26,7 +26,7 @@ class HealthcheckServerTest < Minitest::Test
     @worker.stubs(id: "worker-test-id", state: "worker-test-state")
     @port = random_port
     @pool = Concurrent::FixedThreadPool.new(1)
-    @server = Exekutor.const_get(:Internal)::HealthcheckServer.new(
+    @server = Exekutor.const_get(:Internal)::StatusServer.new(
       worker: @worker, pool: @pool, port: @port
     )
   end
@@ -153,7 +153,7 @@ class HealthcheckServerTest < Minitest::Test
       alias_method :stop, :_stop
     end.new
     Rack::Handler.expects(:get).with("test").returns(handler)
-    @server = Exekutor.const_get(:Internal)::HealthcheckServer.new(
+    @server = Exekutor.const_get(:Internal)::StatusServer.new(
       worker: @worker, pool: @pool, port: @port, handler: "test"
     )
 
@@ -167,7 +167,7 @@ class HealthcheckServerTest < Minitest::Test
   def test_handler_without_shutdown
     handler = TestRackHandler.new
     Rack::Handler.expects(:get).with("test").returns(handler)
-    @server = Exekutor.const_get(:Internal)::HealthcheckServer.new(
+    @server = Exekutor.const_get(:Internal)::StatusServer.new(
       worker: @worker, pool: @pool, port: @port, handler: "test"
     )
 
@@ -175,7 +175,7 @@ class HealthcheckServerTest < Minitest::Test
     # wait max 500 ms for the server to start
     wait_until { server.running? }
 
-    Exekutor.expects(:say!).with(includes("Cannot shutdown healthcheck server"))
+    Exekutor.expects(:say!).with(includes("Cannot shutdown status server"))
     server.stop
   end
 
