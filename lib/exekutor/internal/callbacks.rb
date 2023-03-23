@@ -71,6 +71,7 @@ module Exekutor
               raise MissingYield, "Callback did not yield!" unless has_yielded
             rescue StandardError => e
               raise if e.is_a? MissingYield
+              
               Exekutor.on_fatal_error e, "[Executor] Callback error!"
               next_callback.call
             end

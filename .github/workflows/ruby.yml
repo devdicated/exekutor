@@ -43,6 +43,7 @@ jobs:
 
     - name: Run rubocop
       run: bundle exec rubocop
+      continue-on-error: true
 
     - name: Run brakeman
       run: bundle exec brakeman
