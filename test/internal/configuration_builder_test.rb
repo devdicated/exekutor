@@ -6,7 +6,7 @@ class BasicConfig
   include ::Exekutor.const_get(:Internal)::ConfigurationBuilder
   define_option :string_option, required: true
   define_option :integer_option, default: -> { 123 }, type: Integer, range: 1...999
-  define_option :enum_option, default: :one, type: Symbol, enum: [:one, :two, :three]
+  define_option :enum_option, default: :one, type: Symbol, enum: %i[one two three]
 
   def error_class
     Error
@@ -20,7 +20,7 @@ class InvalidConfig
   define_option :string_option, required: true
 end
 
-#noinspection RubyInstanceMethodNamingConvention
+# noinspection RubyInstanceMethodNamingConvention
 class ConfigurationBuilderTest < Minitest::Test
   attr_accessor :config
 

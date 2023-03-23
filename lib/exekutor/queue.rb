@@ -61,7 +61,8 @@ module Exekutor
 
       Internal::Hooks.run :enqueue, jobs do
         if jobs.one?
-          Exekutor::Job.connection.exec_query <<~SQL, ACTION_NAME, job_sql_binds(jobs.first, scheduled_at, json_serializer), prepare: true
+          sql_binds = job_sql_binds(jobs.first, scheduled_at, json_serializer)
+          Exekutor::Job.connection.exec_query <<~SQL, ACTION_NAME, sql_binds, prepare: true
             INSERT INTO exekutor_jobs ("queue", "priority", "scheduled_at", "active_job_id", "payload", "options") VALUES ($1, $2, to_timestamp($3), $4, $5, $6) RETURNING id;
           SQL
         else
@@ -86,7 +87,8 @@ module Exekutor
       if job.queue_name.blank?
         raise Error, "The queue must be set"
       elsif job.queue_name && job.queue_name.length > Queue::MAX_NAME_LENGTH
-        raise Error, "The queue name \"#{job.queue_name}\" is too long, the limit is #{Queue::MAX_NAME_LENGTH} characters"
+        raise Error,
+              "The queue name \"#{job.queue_name}\" is too long, the limit is #{Queue::MAX_NAME_LENGTH} characters"
       end
 
       options = exekutor_options job

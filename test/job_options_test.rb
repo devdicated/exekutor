@@ -38,6 +38,8 @@ class JobOptionsTest < Minitest::Test
   end
 
   def test_invalid_options
-    assert_raises(::Exekutor::JobOptions::InvalidOption) { TestJobs::WithOptions.exekutor_options(invalid_option: "invalid value") }
+    assert_raises(::Exekutor::JobOptions::InvalidOption) do
+      TestJobs::WithOptions.exekutor_options(invalid_option: "invalid value")
+    end
   end
 end

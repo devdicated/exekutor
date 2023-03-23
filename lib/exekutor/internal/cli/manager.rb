@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative "application_loader"
 require_relative "default_option_value"
 require_relative "daemon"
@@ -84,8 +86,6 @@ module Exekutor
           )
 
           worker_options[:queue] = nil if worker_options[:queue] == ["*"]
-
-          # TODO health check server
 
           # Specify `yield: true` to prevent running in the context of the loaded module
           ActiveSupport.on_load(:exekutor, yield: true) do

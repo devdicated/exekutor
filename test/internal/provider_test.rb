@@ -219,7 +219,8 @@ class ProviderTest < Minitest::Test
 
   def test_wait_error
     error_class = Class.new(StandardError) {}
-    Exekutor.expects(:on_fatal_error).with(instance_of(error_class), "[Provider] An error occurred while waiting").at_least_once
+    Exekutor.expects(:on_fatal_error).with(instance_of(error_class), "[Provider] An error occurred while waiting")
+            .at_least_once
     provider.instance_variable_get(:@event).expects(:wait).at_least_once.raises(error_class)
 
     wait_until_executables_started

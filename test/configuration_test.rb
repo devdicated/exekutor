@@ -13,7 +13,7 @@ end
 class InvalidSerializer
 end
 
-#noinspection RubyInstanceMethodNamingConvention
+# noinspection RubyInstanceMethodNamingConvention
 class ConfigurationTest < Minitest::Test
   attr_accessor :config
 
@@ -163,5 +163,4 @@ class ConfigurationTest < Minitest::Test
     }
     assert_equal expected, config.worker_options
   end
-
 end

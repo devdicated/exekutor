@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
 
   spec.summary = "ActiveJob adapter with PostgreSQL backend."
   spec.description = <<~DESC
-    PostgreSQL backed active job adapter which uses `LISTEN/NOTIFY` to listen for jobs and `FOR UPDATE SKIP LOCKED` to 
+    PostgreSQL backed active job adapter which uses `LISTEN/NOTIFY` to listen for jobs and `FOR UPDATE SKIP LOCKED` to
     reserve jobs.
   DESC
   spec.homepage = "https://github.com/devdicated/exekutor"

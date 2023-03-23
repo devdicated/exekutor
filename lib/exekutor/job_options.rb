@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Exekutor
   # Mixin which defines custom job options for Exekutor. This module should be included in your job class.
   # You can define the following options after including this module:
@@ -72,20 +74,21 @@ module Exekutor
       # @private
       # @return [void]
       def validate_exekutor_options!(options)
-        return unless options.present?
+        return true unless options.present?
 
-        invalid_options = options.keys - VALID_EXEKUTOR_OPTIONS
-        if invalid_options.present?
+        if (invalid_options = options.keys - VALID_EXEKUTOR_OPTIONS).present?
           raise InvalidOption, "Invalid option#{"s" if invalid_options.many?}: " \
             "#{invalid_options.map(&:inspect).join(", ")}. " \
             "Valid options are: #{VALID_EXEKUTOR_OPTIONS.map(&:inspect).join(", ")}"
         end
-        if options[:queue_timeout]
-          raise InvalidOption, ":queue_timeout must be an interval" unless options[:queue_timeout].is_a? ActiveSupport::Duration
+        if options[:queue_timeout] && !options[:queue_timeout].is_a?(ActiveSupport::Duration)
+          raise InvalidOption, ":queue_timeout must be an instance of ActiveSupport::Duration"
         end
-        if options[:execution_timeout]
-          raise InvalidOption, ":execution_timeout must be an interval" unless options[:execution_timeout].is_a? ActiveSupport::Duration
+        if options[:execution_timeout] && !options[:execution_timeout].is_a?(ActiveSupport::Duration)
+          raise InvalidOption, ":execution_timeout must be an instance of ActiveSupport::Duration"
         end
+
+        true
       end
     end
 

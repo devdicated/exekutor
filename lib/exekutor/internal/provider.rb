@@ -8,7 +8,9 @@ module Exekutor
   module Internal
     # Reserves jobs and provides them to an executor
     class Provider
-      include Executable, Callbacks, Logger
+      include Logger
+      include Callbacks
+      include Executable
 
       define_callbacks :on_queue_empty, freeze: true
 
@@ -134,12 +136,12 @@ module Exekutor
             consecutive_errors.value = 0
           end
         end
-      rescue StandardError => err
-        Exekutor.on_fatal_error err, "[Provider] Runtime error!"
+      rescue StandardError => e
+        Exekutor.on_fatal_error e, "[Provider] Runtime error!"
         consecutive_errors.increment
         if running?
           delay = restart_delay
-          logger.info "Restarting in %0.1f seconds…" % [delay]
+          logger.info format("Restarting in %0.1f seconds…", delay)
           Concurrent::ScheduledTask.execute(delay, executor: @pool, &method(:run))
         end
       ensure
@@ -157,8 +159,8 @@ module Exekutor
         return unless timeout.positive?
 
         @event.wait timeout
-      rescue StandardError => err
-        Exekutor.on_fatal_error err, "[Provider] An error occurred while waiting"
+      rescue StandardError => e
+        Exekutor.on_fatal_error e, "[Provider] An error occurred while waiting"
         sleep 0.1 if running?
       ensure
         throw :shutdown unless running?
@@ -180,7 +182,7 @@ module Exekutor
             begin
               Exekutor::Job.where(id: jobs.collect { |job| job[:id] }, status: "e")
                            .update_all(status: "p", worker_id: nil)
-            rescue # rubocop:disable Lint/RescueStandardError
+            rescue StandardError
               # ignored
             end
             raise

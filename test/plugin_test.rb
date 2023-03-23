@@ -2,7 +2,6 @@
 
 require "test_helper"
 class PluginTest < Minitest::Test
-
   def test_appsignal_plugin
     File.expects(:exist?).with(regexp_matches(%r{/exekutor/lib/exekutor/plugins/test_plugin\.rb$})).returns(true)
     begin

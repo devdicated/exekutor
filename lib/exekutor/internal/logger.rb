@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "rainbow"
 
 module Exekutor
@@ -9,7 +11,7 @@ module Exekutor
 
       included do
         # The log tags to use when writing to the log
-        mattr_accessor :log_tags, default: [self.name.demodulize]
+        mattr_accessor :log_tags, default: [name.demodulize]
       end
 
       protected
@@ -47,13 +49,14 @@ module Exekutor
     error = "#{err.class} – #{err.message}\nat #{@backtrace_cleaner.clean(err.backtrace).join("\n   ")}"
 
     unless config.quiet?
-      $stderr.puts Rainbow(message).bright.red if message
-      $stderr.puts Rainbow(error).red
+      warn Rainbow(message).bright.red if message
+      warn Rainbow(error).red
     end
     unless ActiveSupport::Logger.logger_outputs_to?(logger, $stdout)
       logger.error message if message
       logger.error error
     end
+    nil
   end
 
   # Gets the logger

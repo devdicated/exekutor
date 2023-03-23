@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 module Exekutor
   module Internal
     # Serves a simple health check app
@@ -34,9 +35,9 @@ module Exekutor
         return unless @thread_running.value
 
         server = @server.value
-        if server&.respond_to? :shutdown
+        if server.respond_to? :shutdown
           server.shutdown
-        elsif server&.respond_to? :stop
+        elsif server.respond_to? :stop
           server.stop
         elsif server
           Exekutor.say! "Cannot shutdown status server, #{server.class.name} does not respond to shutdown or stop"
@@ -53,8 +54,8 @@ module Exekutor
                      Logger: ::Logger.new(File.open(File::NULL, "w")), AccessLog: []) do |server|
           @server.set server
         end
-      rescue StandardError => err
-        Exekutor.on_fatal_error err, "[HealthServer] Runtime error!"
+      rescue StandardError => e
+        Exekutor.on_fatal_error e, "[Status server] Runtime error!"
         if running?
           logger.info "Restarting in 10 seconds…"
           Concurrent::ScheduledTask.execute(10.0, executor: @pool, &method(:start_thread))
@@ -65,7 +66,6 @@ module Exekutor
 
       # The Rack-app for the health-check server
       class App
-
         def initialize(worker, heartbeat_timeout)
           @worker = worker
           @heartbeat_timeout = heartbeat_timeout
@@ -107,14 +107,15 @@ module Exekutor
               running = false
             end
             [(running ? 200 : 503), { "Content-Type" => "text/plain" }, [
-              "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}; Heartbeat: #{last_heartbeat&.iso8601 || "null"}"
+              "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state};"\
+              " Heartbeat: #{last_heartbeat&.iso8601 || "null"}"
             ]]
           when "/threads"
             if @worker.running?
               info = @worker.thread_stats
               [(info ? 200 : 503), { "Content-Type" => "application/json" }, [info.to_json]]
             else
-              [503, {"Content-Type" => "application/json"}, [{ error: "Worker not running" }.to_json]]
+              [503, { "Content-Type" => "application/json" }, [{ error: "Worker not running" }.to_json]]
             end
           else
             [404, {}, ["Not found"]]

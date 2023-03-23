@@ -229,14 +229,16 @@ class ExecutorTest < Minitest::Test
   end
 
   def test_delete_job
-    job = { id: "test-job-to-destroy", payload: TestJobs::Simple.new.serialize, options: {}, scheduled_at: Time.current }
+    job = { id: "test-job-to-destroy", payload: TestJobs::Simple.new.serialize, options: {},
+            scheduled_at: Time.current }
     Exekutor::Job.expects(:destroy).with("test-job-to-destroy")
     assert executor.send(:delete_job, job)
   end
 
   def test_delete_job_without_connection
     Exekutor::Job.connection.stubs(:active?).returns(false)
-    job = { id: "test-job-to-destroy", payload: TestJobs::Simple.new.serialize, options: {}, scheduled_at: Time.current }
+    job = { id: "test-job-to-destroy", payload: TestJobs::Simple.new.serialize, options: {},
+            scheduled_at: Time.current }
     Exekutor::Job.expects(:destroy).with("test-job-to-destroy").raises(ActiveRecord::ConnectionNotEstablished)
     Exekutor.logger.expects(:error).at_least_once
     refute executor.send(:delete_job, job)
@@ -268,7 +270,8 @@ class ExecutorTest < Minitest::Test
     Exekutor.logger.expects(:error).at_least_once
     refute executor.send(:update_job, job, status: "p", worker_id: nil)
     assert_includes executor.pending_job_updates, "test-job-to-update"
-    assert_equal({ test: "testing", status: "p", worker_id: nil }, executor.pending_job_updates["test-job-to-update"])
+    assert_equal({ test: "testing", status: "p", worker_id: nil },
+                 executor.pending_job_updates["test-job-to-update"])
   end
 
   def test_update_destroyed_job_without_connection
@@ -350,7 +353,8 @@ class ExecutorTest < Minitest::Test
             payload: TestJobs::Raises.new(ActiveRecord::StatementInvalid, "test db connection drop").serialize,
             options: {}, scheduled_at: Time.current }
 
-    Exekutor.const_get(:Internal)::Hooks.expects(:on).with(:job_failure, job, instance_of(ActiveRecord::StatementInvalid))
+    Exekutor.const_get(:Internal)::Hooks.expects(:on)
+                                        .with(:job_failure, job, instance_of(ActiveRecord::StatementInvalid))
     executor.expects(:log_error).with(instance_of(ActiveRecord::StatementInvalid), "Job failed")
     executor.expects(:update_job).with(job, status: "p", worker_id: nil).returns(true)
     Exekutor::JobError.expects(:create!).never

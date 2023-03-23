@@ -1,7 +1,8 @@
+# frozen_string_literal: true
+
 module Exekutor
   # Helper class to clean up finished jobs and stale workers.
   class Cleanup
-
     # Purges all workers where the last heartbeat is over the +timeout+ ago.
     # @param timeout [ActiveSupport::Duration,Numeric,Time] the timeout. Default: 4 hours
     # @return [Array<Exekutor::Info::Worker>] the purged workers
@@ -16,7 +17,7 @@ module Exekutor
                        else
                          raise ArgumentError, "Unsupported value for timeout: #{timeout.class}"
                        end
-      # TODO PG-NOTIFY each worker with an EXIT command
+      # TODO: PG-NOTIFY each worker with an EXIT command
       Exekutor::Info::Worker.where(%{"last_heartbeat_at"<?}, destroy_before).destroy_all
     end
 
@@ -51,6 +52,5 @@ module Exekutor
       end
       jobs.delete_all
     end
-
   end
 end

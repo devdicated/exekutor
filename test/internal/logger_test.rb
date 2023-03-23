@@ -48,8 +48,8 @@ class LoggerTest < Minitest::Test
     ::Exekutor.config.expects(:quiet?).returns(false)
     ActiveSupport::BacktraceCleaner.any_instance.expects(:clean).returns(%w[line1 line2 line3])
 
-    $stderr.expects(:puts).with(includes("log message"))
-    $stderr.expects(:puts).with(all_of(includes("StandardError"), includes("error message"),
+    Exekutor.expects(:warn).with(includes("log message"))
+    Exekutor.expects(:warn).with(all_of(includes("StandardError"), includes("error message"),
                                        includes("line1"), includes("line2"), includes("line3")))
 
     logger.expects(:error).with("log message")

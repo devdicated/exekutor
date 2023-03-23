@@ -69,7 +69,8 @@ class QueueTest < Minitest::Test
     job = TestJobs::WithOptions.new
     Timecop.freeze do
       job.enqueue(queue_timeout: 1.hour)
-      assert_equal [{ "start_execution_before" => 1.hour.from_now.to_f }], ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:options)
+      assert_equal [{ "start_execution_before" => 1.hour.from_now.to_f }],
+                   ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:options)
     end
   end
 
@@ -77,7 +78,8 @@ class QueueTest < Minitest::Test
     job = TestJobs::WithOptions.new
     Timecop.freeze do
       job.enqueue(execution_timeout: 1.hour)
-      assert_equal [{ "execution_timeout" => 3600.0 }], ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:options)
+      assert_equal [{ "execution_timeout" => 3600.0 }],
+                   ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:options)
     end
   end
 
@@ -94,7 +96,8 @@ class QueueTest < Minitest::Test
 
     job = TestJobs::Simple.new
     queue.schedule_at(job, schedule_at.to_date)
-    assert_equal [schedule_at.at_beginning_of_day], ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:scheduled_at)
+    assert_equal [schedule_at.at_beginning_of_day],
+                 ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:scheduled_at)
   end
 
   def test_push_with_invalid_queue

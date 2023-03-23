@@ -27,7 +27,8 @@ class CleanupTest < Minitest::Test
 
   def test_worker_cleaning_with_int_arg
     Timecop.freeze do
-      Exekutor::Info::Worker.expects(:where).with('"last_heartbeat_at"<?', 12.hours.ago).returns(mock(destroy_all: true))
+      Exekutor::Info::Worker.expects(:where).with('"last_heartbeat_at"<?', 12.hours.ago)
+                            .returns(mock(destroy_all: true))
       cleaner.cleanup_workers timeout: 12
     end
   end
@@ -87,9 +88,9 @@ class CleanupTest < Minitest::Test
     before_time = 10.days.ago
 
     mock_jobs.expects(:where!).with('"scheduled_at"<?', before_time)
-    mock_jobs.expects(:where!).with(status: [:f, :d])
+    mock_jobs.expects(:where!).with(status: %i[f d])
     mock_jobs.expects(:delete_all)
-    cleaner.cleanup_jobs before: before_time, status: [:f, :d]
+    cleaner.cleanup_jobs before: before_time, status: %i[f d]
   end
 
   def test_invalid_worker_timeout

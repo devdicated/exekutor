@@ -21,7 +21,7 @@ class ReserverTest < Minitest::Test
     mock_connection.expects(:exec_query).with(
       all_of(
         includes("SET worker_id = $1, status = 'e'"),
-        includes(%Q{WHERE scheduled_at <= now() AND "status"='p'}),
+        includes(%q(WHERE scheduled_at <= now() AND "status"='p')),
         includes("ORDER BY priority, scheduled_at, enqueued_at"),
         includes("FOR UPDATE SKIP LOCKED")
       ), "Exekutor::Reserve", ["test-worker-id", 1234], prepare: true
@@ -74,7 +74,7 @@ class ReserverTest < Minitest::Test
 
     mock_relation = mock
     mock_relation.expects(:where).with(worker_id: "test-worker-id").returns(mock_relation)
-    mock_relation.expects(:where).with().returns(mock_relation)
+    mock_relation.expects(:where).with.returns(mock_relation)
     mock_relation.expects(:not).with(id: [1, 2, 3]).returns(mock_relation)
     mock_relation.expects(:pluck).with(:id, :payload, :options, :scheduled_at).returns(
       [

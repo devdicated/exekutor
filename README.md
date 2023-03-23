@@ -42,7 +42,7 @@ The default priority for jobs without an explicitly specified priority. The vali
 (_highest_ priority) and 32,767 (_lowest_ priority).
 
 ```ruby
-Exekutor.config.default_queue_priority = 16383
+Exekutor.config.default_queue_priority = 16_383
 ```
 
 

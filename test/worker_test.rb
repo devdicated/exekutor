@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 require "rails_helper"
 require "fixtures/test_jobs"
 
@@ -78,7 +79,7 @@ class WorkerTest < Minitest::Test
 
   def test_status_server_options
     assert_equal(
-      { port: 12345, handler: "HandlerName", heartbeat_timeout: 123 },
+      { port: 12_345, handler: "HandlerName", heartbeat_timeout: 123 },
       worker.send(:status_server_options, { status_server_port: 12_345, status_server_handler: "HandlerName",
                                             healthcheck_timeout: 123, other_option: "test" })
     )
@@ -110,22 +111,21 @@ class WorkerTest < Minitest::Test
   end
 
   def test_wait_for_termination_failed_wait
-    timeout = 123 + rand(12)
+    timeout = rand(123..456)
     worker.instance_variable_get(:@executor).expects(:wait_for_termination).with(timeout).returns(false)
     worker.instance_variable_get(:@executor).expects(:kill)
     worker.send(:wait_for_termination, timeout)
   end
 
   def test_wait_for_termination_successful_wait
-    timeout = 123 + rand(12)
+    timeout = rand(123..456)
     worker.instance_variable_get(:@executor).expects(:wait_for_termination).with(timeout).returns(true)
     worker.instance_variable_get(:@executor).expects(:kill).never
     worker.send(:wait_for_termination, timeout)
-
   end
 
   def test_wait_for_termination_indeterminate
-    worker.instance_variable_get(:@executor).expects(:wait_for_termination).with().returns(false)
+    worker.instance_variable_get(:@executor).expects(:wait_for_termination).with.returns(false)
     worker.instance_variable_get(:@executor).expects(:kill).never
     worker.send(:wait_for_termination, true)
   end
@@ -134,7 +134,7 @@ class WorkerTest < Minitest::Test
     worker.stop
     wait_until { worker.record.destroyed? }
 
-    worker = Exekutor::Worker.new(status_server_port: 123456)
+    worker = Exekutor::Worker.new(status_server_port: 12_345)
     assert(
       worker.instance_variable_get(:@executables).any? { |e| e.is_a? Exekutor.const_get(:Internal)::StatusServer }
     )

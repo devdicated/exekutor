@@ -51,7 +51,7 @@ module Exekutor
         begin
           Exekutor::Job.connection.execute(%(NOTIFY "#{provider_channel}"))
         rescue ActiveRecord::StatementInvalid, ActiveRecord::ConnectionNotEstablished
-          #ignored
+          # ignored
         end
       end
 
@@ -79,23 +79,21 @@ module Exekutor
         return unless running? && @thread_running.make_true
 
         with_pg_connection do |connection|
-          begin
-            connection.exec(%(LISTEN "#{provider_channel}"))
-            connection.exec(%(LISTEN "#{JOB_ENQUEUED_CHANNEL}"))
-            consecutive_errors.value = 0
-            catch(:shutdown) { wait_for_jobs(connection) }
-          ensure
-            connection.exec("UNLISTEN *")
-          end
+          connection.exec(%(LISTEN "#{provider_channel}"))
+          connection.exec(%(LISTEN "#{JOB_ENQUEUED_CHANNEL}"))
+          consecutive_errors.value = 0
+          catch(:shutdown) { wait_for_jobs(connection) }
+        ensure
+          connection.exec("UNLISTEN *")
         end
-      rescue StandardError => err
-        Exekutor.on_fatal_error err, "[Listener] Runtime error!"
-        set_state :crashed if err.is_a? UnsupportedDatabase
+      rescue StandardError => e
+        Exekutor.on_fatal_error e, "[Listener] Runtime error!"
+        set_state :crashed if e.is_a? UnsupportedDatabase
 
         if running?
           consecutive_errors.increment
           delay = restart_delay
-          logger.info "Restarting in %0.1f seconds…" % [delay]
+          logger.info format("Restarting in %0.1f seconds…", delay)
           Concurrent::ScheduledTask.execute(delay, executor: @pool, &method(:run))
         end
       ensure
@@ -113,12 +111,13 @@ module Exekutor
 
             job_info = begin
                          payload.split(";").map { |el| el.split(":") }.to_h
-                       rescue
+                       rescue StandardError
                          logger.error "Invalid notification payload: #{payload}"
                          next
                        end
             unless %w[id q t].all? { |n| job_info[n].present? }
-              logger.error "[Listener] Notification payload is missing #{%w[id q t].select { |n| job_info[n].blank? }.join(", ")}"
+              missing_keys = %w[id q t].select { |n| job_info[n].blank? }.join(", ")
+              logger.error "[Listener] Notification payload is missing #{missing_keys}"
               next
             end
             next unless listening_to_queue? job_info["q"]
@@ -129,8 +128,8 @@ module Exekutor
         end
       end
 
-      # Gets a DB connection and removes it from the pool. Sets the application name if +set_db_connection_name+ is true.
-      # Closes the connection after yielding it to the given block.
+      # Gets a DB connection and removes it from the pool. Sets the application name if +set_db_connection_name+ is
+      # true. Closes the connection after yielding it to the given block.
       # (Grabbed from PG adapter for action cable)
       # @yield yields the connection
       # @yieldparam connection [PG::Connection] the DB connection
@@ -159,6 +158,7 @@ module Exekutor
           raise UnsupportedDatabase,
                 "The raw connection of the active record connection adapter must be an instance of PG::Connection"
         end
+        true
       end
 
       # For testing purposes

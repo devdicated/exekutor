@@ -23,14 +23,17 @@ module Exekutor
     # @option config [Array<String>] :queues the queues to work on
     # @option config [Integer] :min_threads the minimum number of execution threads that should be active
     # @option config [Integer] :max_threads the maximum number of execution threads that may be active
-    # @option config [Integer] :max_thread_idletime the maximum number of seconds a thread may be idle before being stopped
+    # @option config [Integer] :max_thread_idletime the maximum number of seconds a thread may be idle before being
+    #   stopped
     # @option config [Integer] :polling_interval the polling interval in seconds
     # @option config [Float] :poling_jitter the polling jitter
     # @option config [Boolean] :set_db_connection_name whether the DB connection name should be set
-    # @option config [Integer,Boolean] :wait_for_termination how long the worker should wait on jobs to be completed before exiting
+    # @option config [Integer,Boolean] :wait_for_termination how long the worker should wait on jobs to be completed
+    #   before exiting
     # @option config [Integer] :status_server_port the port to run the status server on
     # @option config [String] :status_server_handler The name of the rack handler to use for the status server
-    # @option config [Integer] :healthcheck_timeout The timeout of a worker in minutes before the healthcheck server deems it as down
+    # @option config [Integer] :healthcheck_timeout The timeout of a worker in minutes before the healthcheck server
+    #   deems it as down
     def initialize(config = {})
       super()
       @config = config
@@ -43,7 +46,7 @@ module Exekutor
 
       provider_threads = 1
       provider_threads += 1 if config.fetch(:enable_listener, true)
-      provider_threads += 1 if config[:status_server_port].to_i > 0
+      provider_threads += 1 if config[:status_server_port].to_i.positive?
 
       provider_pool = Concurrent::FixedThreadPool.new provider_threads, max_queue: provider_threads,
                                                       name: "exekutor-provider"
@@ -57,18 +60,26 @@ module Exekutor
                                           **listener_options(config)
         @executables << listener
       end
-      if config[:status_server_port].to_i > 0
+      if config[:status_server_port].to_i.positive?
         server = Internal::StatusServer.new worker: self, pool: provider_pool, **status_server_options(config)
         @executables << server
       end
       @executables.freeze
 
       @executor.after_execute(@record) do |_job, worker_info|
-        worker_info.heartbeat! rescue nil
+        begin
+          worker_info.heartbeat!
+        rescue StandardError
+          # ignored
+        end
         @provider.poll if @provider.running?
       end
       @provider.on_queue_empty(@record) do |worker_info|
-        worker_info.heartbeat! rescue nil
+        begin
+          worker_info.heartbeat!
+        rescue StandardError
+          # ignored
+        end
         @executor.prune_pool
       end
     end
@@ -77,6 +88,7 @@ module Exekutor
     # @return [Boolean] whether the worker was started
     def start
       return false unless compare_and_set_state(:pending, :started)
+
       Internal::Hooks.run :startup, self do
         @executables.each(&:start)
         @record.update(status: "r")
@@ -93,8 +105,8 @@ module Exekutor
         unless @record.destroyed?
           begin
             @record.update(status: "s")
-          rescue
-            #ignored
+          rescue StandardError
+            # ignored
           end
         end
         @executables.reverse_each(&:stop)
@@ -103,8 +115,8 @@ module Exekutor
 
         begin
           @record.destroy
-        rescue
-          #ignored
+        rescue StandardError
+          # ignored
         end
         @stop_event&.set if defined?(@stop_event)
       end
@@ -121,8 +133,8 @@ module Exekutor
       @executor.kill
       begin
         @record.destroy
-      rescue
-        #ignored
+      rescue StandardError
+        # ignored
       end
       true
     end
@@ -152,13 +164,14 @@ module Exekutor
 
     def thread_stats
       available = @executor.available_threads
+      usage_percent = if @executor.running?
+                        ((1 - (available.to_f / @executor.maximum_threads)) * 100).round(2)
+                      end
       {
         minimum: @executor.minimum_threads,
         maximum: @executor.maximum_threads,
         available: available,
-        usage_percent: if @executor.running?
-                         ((1 - (available.to_f / @executor.maximum_threads)) * 100).round(2)
-                       end
+        usage_percent: usage_percent
       }
     end
 

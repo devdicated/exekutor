@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 raise Exekutor::Plugins::LoadError, "Appsignal not found, is the gem loaded?" unless defined? Appsignal
 
 module Exekutor
@@ -21,14 +23,14 @@ module Exekutor
 
         ::Appsignal.monitor_transaction(
           "perform_job.exekutor",
-          class: payload['job_class'],
+          class: payload["job_class"],
           method: "perform",
           params: params,
           metadata: {
-            id: payload['job_id'],
-            queue: payload['queue_name'],
-            priority: payload.fetch('priority', Exekutor.config.default_queue_priority),
-            attempts: payload.fetch('attempts', 0)
+            id: payload["job_id"],
+            queue: payload["queue_name"],
+            priority: payload.fetch("priority", Exekutor.config.default_queue_priority),
+            attempts: payload.fetch("attempts", 0)
           },
           queue_start: job[:scheduled_at]
         ) do

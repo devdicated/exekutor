@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative "application_loader"
 require_relative "default_option_value"
 require "terminal-table"
@@ -85,12 +87,11 @@ module Exekutor
         end
 
         def cleaner
-          @delegate ||= ::Exekutor::Cleanup.new
+          @cleaner ||= ::Exekutor::Cleanup.new
         end
 
         DEFAULT_STATUSES = DefaultOptionValue.new("All except :pending").freeze
       end
     end
-
   end
 end

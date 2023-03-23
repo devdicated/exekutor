@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "gli"
 require "rainbow"
 require_relative "cleanup"
@@ -29,22 +31,22 @@ module Exekutor
         switch %i[quiet], negatable: false, desc: "Enable less output"
 
         # Defines start command flags
-        def self.define_start_options(c)
-          c.flag %i[env environment], desc: "The Rails environment"
-          c.flag %i[q queue], default_value: Manager::DEFAULT_QUEUE, multiple: true,
+        def self.define_start_options(cmd)
+          cmd.flag %i[env environment], desc: "The Rails environment"
+          cmd.flag %i[q queue], default_value: Manager::DEFAULT_QUEUE, multiple: true,
                  desc: "Queue to work from"
-          c.flag %i[t threads], type: String, default_value: Manager::DEFAULT_THREADS,
+          cmd.flag %i[t threads], type: String, default_value: Manager::DEFAULT_THREADS,
                  desc: "The number of threads for executing jobs, specified as `min:max`"
-          c.flag %i[p poll_interval], type: Integer, default_value: DefaultOptionValue.new( value: 60),
+          cmd.flag %i[p poll_interval], type: Integer, default_value: DefaultOptionValue.new( value: 60),
                  desc: "Interval between polls for available jobs (in seconds)"
-          c.flag %i[cfg configfile], type: String, default_value: Manager::DEFAULT_CONFIG_FILES, multiple: true,
+          cmd.flag %i[cfg configfile], type: String, default_value: Manager::DEFAULT_CONFIG_FILES, multiple: true,
                  desc: "The YAML configuration file to load. If specifying multiple files, the last file takes precedence"
         end
         private_class_method :define_start_options
 
         # Defines stop command flags
-        def self.define_stop_options(c)
-          c.flag %i[timeout shutdown_timeout], default_value: Manager::DEFAULT_FOREVER,
+        def self.define_stop_options(cmd)
+          cmd.flag %i[timeout shutdown_timeout], default_value: Manager::DEFAULT_FOREVER,
                  desc: "Number of seconds to wait for jobs to finish when shutting down before killing the worker. (in seconds)"
         end
         private_class_method :define_stop_options

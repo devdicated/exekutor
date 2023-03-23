@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Exekutor
   # Mixin to let methods be executed asynchronously by active job
   #
@@ -24,7 +26,7 @@ module Exekutor
       private_class_method :perform_asynchronously
     end
 
-    class_methods do
+    class_methods do # rubocop:disable Metrics/BlockLength
       # Changes a method to be executed asynchronously.
       # Be aware that you can no longer use the return value for
       # asynchronous methods, because the actual method will be performed by a worker at a later time. The new
@@ -36,8 +38,11 @@ module Exekutor
       # @param class_method [Boolean] whether the method is a class method.
       # @raise [Error] if the method could not be replaced with the asynchronous version
       def perform_asynchronously(method_name, alias_to: "__immediately_#{method_name}", class_method: false)
-        raise ArgumentError, "method_name must be a Symbol (actual: #{method_name.class.name})" unless method_name.is_a? Symbol
+        unless method_name.is_a? Symbol
+          raise ArgumentError, "method_name must be a Symbol (actual: #{method_name.class.name})"
+        end
         raise ArgumentError, "alias_to must be present" unless alias_to.present?
+
         if class_method
           raise ArgumentError, "##{method_name} does not exist" unless respond_to? method_name, true
 
@@ -51,15 +56,14 @@ module Exekutor
           delegate = self
           definitions = __async_instance_methods
         end
-        if definitions.include? method_name
-          raise Error, "##{method_name} was already marked as asynchronous"
-        end
+        raise Error, "##{method_name} was already marked as asynchronous" if definitions.include? method_name
 
         delegate.alias_method alias_to, method_name
         delegate.define_method method_name do |*args, **kwargs|
           error = Asynchronous.validate_args(self, alias_to, *args, **kwargs)
           raise error if error
           raise ArgumentError, "Cannot asynchronously execute with a block argument" if block_given?
+
           AsyncMethodJob.perform_later self, method_name, [args, kwargs.presence]
         end
 
@@ -73,8 +77,6 @@ module Exekutor
         end
       end
     end
-
-    private
 
     # Validates whether the given arguments match the expected parameters for +method+
     # @param delegate [Object] the object the +method+ will be called on
@@ -90,31 +92,41 @@ module Exekutor
       missing_keywords = []
       unknown_keywords = kwargs.keys
       obj_method.parameters.each do |type, name|
-        if type == :req
+        case type
+        when :req
           min_arg_length += 1
           max_arg_length += 1 if max_arg_length
-        elsif type == :opt
+        when :opt
           max_arg_length += 1 if max_arg_length
-        elsif type == :rest
+        when :rest
           max_arg_length = nil
-        elsif type == :keyreq
+        when :keyreq
           accepts_keywords = true
           missing_keywords << name if kwargs.exclude?(name)
           unknown_keywords.delete(name)
-        elsif type == :key
+        when :key
           accepts_keywords = true
           unknown_keywords.delete(name)
-        elsif type == :keyrest
+        when :keyrest
           accepts_keywords = true
           unknown_keywords = []
+        else
+          Exekutor.say "Unsupported parameter type: #{type.inspect}"
         end
       end
       if missing_keywords.present?
-        return ArgumentError.new "missing keyword#{"s" if missing_keywords.many?}: #{missing_keywords.map(&:inspect).join(", ")}"
+        return ArgumentError.new "missing keyword#{
+          if missing_keywords.many?
+            "s"
+          end}: #{missing_keywords.map(&:inspect).join(", ")}"
       end
+
       if accepts_keywords
         if unknown_keywords.present?
-          return ArgumentError.new "unknown keyword#{"s" if unknown_keywords.many?}: #{unknown_keywords.map(&:inspect).join(", ")}"
+          return ArgumentError.new "unknown keyword#{
+            if unknown_keywords.many?
+              "s"
+            end}: #{unknown_keywords.map(&:inspect).join(", ")}"
         end
       elsif kwargs.present?
         args += [kwargs]
@@ -130,13 +142,14 @@ module Exekutor
         end
         return ArgumentError.new "wrong number of arguments (given #{args_len}, expected #{expected})"
       end
+
+      nil
     end
 
     # The internal job used for {Exekutor::Asynchronous}. Only works for methods that are marked as asynchronous to
     # prevent remote code execution. Include the {Exekutor::Asynchronous} and call
     # {Exekutor::Asynchronous#perform_asynchronously} to mark a method as asynchronous.
     class AsyncMethodJob < ActiveJob::Base
-
       # Calls the original, synchronous method
       # @!visibility private
       def perform(object, method, args)
@@ -172,12 +185,9 @@ module Exekutor
           class_name = object.class.name
           definitions = object.class.__async_instance_methods
         end
-        unless object.respond_to? method, true
-          raise Error, "#{class_name} does not respond to #{method}"
-        end
-        unless definitions.include? method.to_sym
-          raise Error, "#{class_name}##{method} is not marked as asynchronous"
-        end
+        raise Error, "#{class_name} does not respond to #{method}" unless object.respond_to? method, true
+        raise Error, "#{class_name}##{method} is not marked as asynchronous" unless definitions.include? method.to_sym
+
         definitions[method.to_sym]
       end
     end

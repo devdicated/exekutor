@@ -39,4 +39,3 @@ class ExekutorTest < Minitest::Test
     false
   end
 end
-

@@ -16,7 +16,7 @@ class TestCallbacks
   end
 end
 
-#noinspection RubyInstanceMethodNamingConvention
+# noinspection RubyInstanceMethodNamingConvention
 class CallbacksTest < Minitest::Test
   attr_accessor :callbacks
 
@@ -26,7 +26,8 @@ class CallbacksTest < Minitest::Test
   end
 
   def test_callback_names
-    assert_equal %i[on_event before_another_event around_another_event after_another_event], callbacks.send(:__callback_names)
+    assert_equal %i[on_event before_another_event around_another_event after_another_event],
+                 callbacks.send(:__callback_names)
   end
 
   def test_define_invalid_callback
@@ -69,7 +70,7 @@ class CallbacksTest < Minitest::Test
   end
 
   def test_chained_around_callbacks
-    order = sequence('callbacks')
+    order = sequence("callbacks")
     asserter = mock
     asserter.expects(:around3).with("arg", "arg3").yields.in_sequence(order)
     asserter.expects(:around2).with("arg", "arg2").yields.in_sequence(order)
@@ -129,4 +130,3 @@ class CallbacksTest < Minitest::Test
     callbacks.emit_event "arg"
   end
 end
-

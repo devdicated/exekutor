@@ -45,9 +45,8 @@ class AppsignalPluginTest < Minitest::Test
     ::Exekutor.config.stubs(:quiet?).returns(true)
     begin
       raise StandardError, "test"
-    rescue => e
+    rescue StandardError => e
       ::Exekutor.on_fatal_error e
     end
   end
-
 end

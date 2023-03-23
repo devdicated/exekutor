@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../rails_helper"
-require 'net/http'
+require "net/http"
 
 class StatusServerTest < Minitest::Test
   include Rack::Test::Methods
@@ -115,7 +115,7 @@ class StatusServerTest < Minitest::Test
   end
 
   def test_threads
-    worker.stubs(running?: true, thread_stats: {minimum: 1, maximum: 3, available: 3, usage_percent: 0})
+    worker.stubs(running?: true, thread_stats: { minimum: 1, maximum: 3, available: 3, usage_percent: 0 })
     get "/threads"
     assert_equal 200, last_response.status
   end
@@ -134,7 +134,7 @@ class StatusServerTest < Minitest::Test
 
   def test_server_crash
     error_class = Class.new(StandardError) {}
-    Exekutor.expects(:on_fatal_error).with(instance_of(error_class), includes("HealthServer"))
+    Exekutor.expects(:on_fatal_error).with(instance_of(error_class), includes("[Status server]"))
     Concurrent::ScheduledTask.expects(:execute).with(10.0, executor: pool)
     # Suppress logger output
     server.send(:logger).expects(:info)

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module TestJobs
   class Simple < ActiveJob::Base
     mattr_accessor :executed, default: false

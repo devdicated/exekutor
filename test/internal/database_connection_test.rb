@@ -3,7 +3,6 @@
 require_relative "../test_helper"
 
 class DatabaseConnectionTest < Minitest::Test
-
   def test_set_application_name
     connection = mock
     connection.stubs(:escape_identifier).with("Exekutor[id: 1234]").returns("'Exekutor[id: 1234]'")

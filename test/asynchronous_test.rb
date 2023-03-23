@@ -2,7 +2,7 @@
 
 require "test_helper"
 
-#noinspection RubyInstanceMethodNamingConvention
+# noinspection RubyInstanceMethodNamingConvention
 class AsynchronousTest < Minitest::Test
   attr_reader :instance
 
@@ -86,7 +86,8 @@ class AsynchronousTest < Minitest::Test
     TestClass.method_with_kwargs kwarg1: 1, kwarg2: :two
 
     refute_nil enqueued_job
-    assert_equal [TestClass, :method_with_kwargs, [[], { kwarg1: 1, kwarg2: :two }]], enqueued_job.arguments
+    assert_equal [TestClass, :method_with_kwargs, [[], { kwarg1: 1, kwarg2: :two }]],
+                 enqueued_job.arguments
 
     TestClass.expects(:__immediately_method_with_kwargs).with(kwarg1: 1, kwarg2: :two)
     enqueued_job.perform_now
@@ -98,7 +99,8 @@ class AsynchronousTest < Minitest::Test
     TestClass.method_with_keyrest arg1: 1, arg2: 2, arg3: 3, arg4: 4, arg5: 5
 
     refute_nil enqueued_job
-    assert_equal [TestClass, :method_with_keyrest, [[], { arg1: 1, arg2: 2, arg3: 3, arg4: 4, arg5: 5 }]], enqueued_job.arguments
+    assert_equal [TestClass, :method_with_keyrest, [[], { arg1: 1, arg2: 2, arg3: 3, arg4: 4, arg5: 5 }]],
+                 enqueued_job.arguments
 
     TestClass.expects(:__immediately_method_with_keyrest).with(arg1: 1, arg2: 2, arg3: 3, arg4: 4, arg5: 5)
     enqueued_job.perform_now
@@ -122,7 +124,8 @@ class AsynchronousTest < Minitest::Test
     TestClass.method_with_mixed_args 1, 2, 2.5, arg3: 3, arg4: 4, arg5: 5
 
     refute_nil enqueued_job
-    assert_equal [TestClass, :method_with_mixed_args, [[1, 2, 2.5], { arg3: 3, arg4: 4, arg5: 5 }]], enqueued_job.arguments
+    assert_equal [TestClass, :method_with_mixed_args, [[1, 2, 2.5], { arg3: 3, arg4: 4, arg5: 5 }]],
+                 enqueued_job.arguments
 
     TestClass.expects(:__immediately_method_with_mixed_args).with(1, 2, 2.5, arg3: 3, arg4: 4, arg5: 5)
     enqueued_job.perform_now
@@ -155,11 +158,13 @@ class AsynchronousTest < Minitest::Test
   end
 
   def test_missing_kwargs
-    assert_raises(ArgumentError, includes('kwarg1, kwarg2')) { TestClass.method_with_kwargs }
+    assert_raises(ArgumentError, includes("kwarg1, kwarg2")) { TestClass.method_with_kwargs }
   end
 
   def test_unknown_kwargs
-    assert_raises(ArgumentError, includes('unknown')) { TestClass.method_with_kwargs kwarg1: 1, kwarg2: 2, unknown: true }
+    assert_raises(ArgumentError, includes("unknown")) do
+      TestClass.method_with_kwargs kwarg1: 1, kwarg2: 2, unknown: true
+    end
   end
 
   def test_nonexistent_method
@@ -175,56 +180,54 @@ class AsynchronousTest < Minitest::Test
   end
 
   def test_job_for_missing_delegate
-    assert_raises(Exekutor::Asynchronous::Error) { Exekutor::Asynchronous::AsyncMethodJob.perform_now nil, :method, [] }
+    assert_raises(Exekutor::Asynchronous::Error) do
+      Exekutor::Asynchronous::AsyncMethodJob.perform_now nil, :method, []
+    end
   end
 
   def test_job_for_invalid_delegate
-    assert_raises(Exekutor::Asynchronous::Error) { Exekutor::Asynchronous::AsyncMethodJob.perform_now Object, :method, [] }
+    assert_raises(Exekutor::Asynchronous::Error) do
+      Exekutor::Asynchronous::AsyncMethodJob.perform_now Object, :method, []
+    end
   end
 
   def test_job_for_invalid_method
-    assert_raises(Exekutor::Asynchronous::Error) { Exekutor::Asynchronous::AsyncMethodJob.perform_now TestClass, :invalid_method, [] }
+    assert_raises(Exekutor::Asynchronous::Error) do
+      Exekutor::Asynchronous::AsyncMethodJob.perform_now TestClass, :invalid_method, []
+    end
   end
 
   def test_job_for_non_async_method
-    assert_raises(Exekutor::Asynchronous::Error) { Exekutor::Asynchronous::AsyncMethodJob.perform_now TestClass, :not_an_async_method, [] }
+    assert_raises(Exekutor::Asynchronous::Error) do
+      Exekutor::Asynchronous::AsyncMethodJob.perform_now TestClass, :not_an_async_method, []
+    end
   end
 
   class TestClass
     include ::Exekutor::Asynchronous
 
-    def method_without_args
-
-    end
+    def method_without_args; end
 
     perform_asynchronously :method_without_args
 
-    def method_with_custom_alias
-
-    end
+    def method_with_custom_alias; end
 
     perform_asynchronously :method_with_custom_alias, alias_to: :alias_to_method_with_custom_alias
 
     protected
 
-    def protected_method
-
-    end
+    def protected_method; end
 
     perform_asynchronously :protected_method
 
     private
 
-    def private_method
-
-    end
+    def private_method; end
 
     perform_asynchronously :private_method
 
     class << self
-      def method_without_args
-
-      end
+      def method_without_args; end
 
       def method_with_args(arg1, arg2, arg3 = 3) end
 
@@ -234,15 +237,13 @@ class AsynchronousTest < Minitest::Test
 
       def method_with_keyrest(arg1:, **keyrest) end
 
-      def method_with_mixed_args(arg1, arg2 = nil, *rest, arg3:, arg4: 4, **keyrest) end
+      def method_with_mixed_args(arg1, arg2 = nil, *rest, arg3:, arg4: 4, **keyrest) end # rubocop:disable Metrics/ParameterLists
 
       def not_an_async_method; end
 
       private
 
-      def private_method
-
-      end
+      def private_method; end
     end
 
     perform_asynchronously :method_without_args, class_method: true

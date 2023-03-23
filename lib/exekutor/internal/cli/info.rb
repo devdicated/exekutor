@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative "application_loader"
 require "terminal-table"
 
@@ -56,7 +58,7 @@ module Exekutor
                       Rainbow(worker.last_heartbeat_at.strftime("%D %R")).red
                     end
                   ]
-                  # TODO switch / flag to print threads and queues
+                  # TODO: switch / flag to print threads and queues
                 end
                 total_workers += worker_count
                 table.add_separator
@@ -119,7 +121,6 @@ module Exekutor
         def verbose?
           !quiet? && !!@global_options[:verbose]
         end
-
       end
     end
   end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Exekutor
   module Internal
     class Hooks
@@ -14,9 +16,10 @@ module Exekutor
       def register(callback = nil, &block)
         if callback
           callback = callback.new if callback.is_a? Class
-          raise 'callback must respond to #callbacks' unless callback.respond_to? :callbacks
+          raise "callback must respond to #callbacks" unless callback.respond_to? :callbacks
+
           callback.callbacks.each do |type, callbacks|
-            callbacks.each { |callback| add_callback! type, [], callback }
+            callbacks.each { |cb| add_callback! type, [], cb }
           end
         elsif block.arity == 1
           block.call self
@@ -82,6 +85,4 @@ module Exekutor
   # @!attribute [r] hooks
   #   @return [Internal::Hooks] The hooks for exekutor.
   mattr_reader :hooks, default: Internal::Hooks.new
-
-  # TODO register_hook method instead of `hooks.register`?
 end

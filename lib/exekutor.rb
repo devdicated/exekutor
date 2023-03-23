@@ -3,7 +3,6 @@
 require_relative "exekutor/version"
 
 module Exekutor
-
   # Base error class
   class Error < StandardError; end
 

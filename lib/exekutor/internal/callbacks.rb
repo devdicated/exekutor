@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Exekutor
   module Internal
     # Mixin to define callbacks on a class
@@ -67,9 +69,9 @@ module Exekutor
               has_yielded = false
               callback.call(*callback_args) { has_yielded = true; next_callback.call }
               raise MissingYield, "Callback did not yield!" unless has_yielded
-            rescue StandardError => err
-              raise if err.is_a? MissingYield
-              Exekutor.on_fatal_error err, "[Executor] Callback error!"
+            rescue StandardError => e
+              raise if e.is_a? MissingYield
+              Exekutor.on_fatal_error e, "[Executor] Callback error!"
               next_callback.call
             end
           end.call
@@ -82,8 +84,8 @@ module Exekutor
           else
             callback.call(*(args + extra_args))
           end
-        rescue StandardError => err
-          Exekutor.on_fatal_error err, "[Executor] Callback error!"
+        rescue StandardError => e
+          Exekutor.on_fatal_error e, "[Executor] Callback error!"
         end
         nil
       end

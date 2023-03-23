@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+
 module Exekutor
   # @private
   module Internal
@@ -59,7 +60,7 @@ module Exekutor
           { id: result["id"],
             payload: parse_json(result["payload"]),
             options: parse_json(result["options"]),
-            scheduled_at: result['scheduled_at'] }
+            scheduled_at: result["scheduled_at"] }
         end
       end
 
@@ -88,8 +89,6 @@ module Exekutor
           Exekutor::Job.sanitize_sql_for_conditions(["AND queue = ?", queues])
         end
       end
-
     end
   end
 end
-
