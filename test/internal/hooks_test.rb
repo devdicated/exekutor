@@ -13,12 +13,14 @@ class InternalHooksTest < Minitest::Test
   def test_register_with_args
     callback = -> {}
     hooks.register { |hooks| hooks.before_startup(&callback) }
+
     assert_includes hooks.send(:__callbacks)[:before_startup], [callback, []]
   end
 
   def test_register_without_args
     callback = -> {}
     hooks.register { before_startup(&callback) }
+
     assert_includes hooks.send(:__callbacks)[:before_startup], [callback, []]
   end
 
@@ -26,6 +28,7 @@ class InternalHooksTest < Minitest::Test
     instance = TestHook.new
     TestHook.expects(:new).returns(instance)
     hooks.register TestHook
+
     assert_includes hooks.send(:__callbacks)[:before_startup], [instance.method(:callback_method), []]
   end
 
@@ -33,6 +36,7 @@ class InternalHooksTest < Minitest::Test
     instance = TestHook.new
     TestHook.expects(:new).returns(instance)
     hooks << TestHook
+
     assert_includes hooks.send(:__callbacks)[:before_startup], [instance.method(:callback_method), []]
   end
 

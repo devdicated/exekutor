@@ -40,15 +40,18 @@ class StatusServerTest < Minitest::Test
     server.start
     # wait max 500 ms for the server to start
     wait_until { server.running? }
+
     assert server.running?
 
     server.stop
     wait_until { !server.running? }
+
     refute server.running?
   end
 
   def test_root
     get "/"
+
     assert last_response.ok?
     assert_match %r{GET /ready}, last_response.body
     assert_match %r{GET /live}, last_response.body
@@ -58,6 +61,7 @@ class StatusServerTest < Minitest::Test
     worker.expects(running?: true, last_heartbeat: Time.now)
 
     get "/live"
+
     assert last_response.ok?
   end
 
@@ -65,6 +69,7 @@ class StatusServerTest < Minitest::Test
     worker.expects(running?: false)
 
     get "/live"
+
     assert_equal 503, last_response.status
   end
 
@@ -72,6 +77,7 @@ class StatusServerTest < Minitest::Test
     worker.expects(running?: true, last_heartbeat: 601.seconds.ago)
 
     get "/live"
+
     assert_equal 503, last_response.status
   end
 
@@ -80,6 +86,7 @@ class StatusServerTest < Minitest::Test
     Exekutor::Job.stubs(:connection).returns(stub(active?: false))
 
     get "/live"
+
     assert last_response.ok?
   end
 
@@ -88,6 +95,7 @@ class StatusServerTest < Minitest::Test
     Exekutor::Job.connection_pool.expects(:with_connection).yields(mock(active?: true))
 
     get "/ready"
+
     assert last_response.ok?
   end
 
@@ -95,6 +103,7 @@ class StatusServerTest < Minitest::Test
     worker.expects(running?: false)
 
     get "/ready"
+
     assert_equal 503, last_response.status
   end
 
@@ -103,6 +112,7 @@ class StatusServerTest < Minitest::Test
     Exekutor::Job.connection_pool.expects(:with_connection).yields(mock(active?: true))
 
     get "/ready"
+
     assert_equal 503, last_response.status
   end
 
@@ -111,12 +121,14 @@ class StatusServerTest < Minitest::Test
     Exekutor::Job.connection_pool.expects(:with_connection).yields(mock(active?: false))
 
     get "/ready"
+
     assert_equal 503, last_response.status
   end
 
   def test_threads
     worker.stubs(running?: true, thread_stats: { minimum: 1, maximum: 3, available: 3, usage_percent: 0 })
     get "/threads"
+
     assert_equal 200, last_response.status
   end
 
@@ -124,11 +136,13 @@ class StatusServerTest < Minitest::Test
     worker.stubs(running?: false)
 
     get "/threads"
+
     assert_equal 503, last_response.status
   end
 
   def test_invalid_path
     get "/nonexisting"
+
     assert_equal 404, last_response.status
   end
 

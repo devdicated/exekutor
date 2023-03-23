@@ -21,6 +21,7 @@ class ExecutorTest < Minitest::Test
   def test_kill
     executor.kill
     sleep(0.01)
+
     assert_equal :killed, executor.state
   end
 
@@ -87,6 +88,7 @@ class ExecutorTest < Minitest::Test
                                                             delete_failed_jobs: false)
     @executor.start
     executor.stubs(:log_error)
+
     assert_job_deletion TestJobs::Simple.new, true
     assert_job_deletion TestJobs::Raises.new(Exekutor::DiscardJob, "test discarded job deletion"), false
     assert_job_deletion TestJobs::Raises.new(StandardError, "test failed job deletion"), false
@@ -101,6 +103,7 @@ class ExecutorTest < Minitest::Test
                                                             delete_failed_jobs: false)
     @executor.start
     executor.stubs(:log_error)
+
     assert_job_deletion TestJobs::Simple.new, false
     assert_job_deletion TestJobs::Raises.new(Exekutor::DiscardJob, "test discarded job deletion"), true
     assert_job_deletion TestJobs::Raises.new(StandardError, "test failed job deletion"), false
@@ -115,6 +118,7 @@ class ExecutorTest < Minitest::Test
                                                             delete_failed_jobs: true)
     @executor.start
     executor.stubs(:log_error)
+
     assert_job_deletion TestJobs::Simple.new, false
     assert_job_deletion TestJobs::Raises.new(Exekutor::DiscardJob, "test discarded job deletion"), false
     assert_job_deletion TestJobs::Raises.new(StandardError, "test failed job deletion"), true
@@ -135,6 +139,7 @@ class ExecutorTest < Minitest::Test
 
     TestJobs::Blocking.block = false
     wait_until_workers_finished
+
     assert_equal [], executor.active_job_ids
   ensure
     TestJobs::Blocking.block = false
@@ -163,6 +168,7 @@ class ExecutorTest < Minitest::Test
   def test_minimum_maximum_workers
     executor.stop
     @executor = Exekutor.const_get(:Internal)::Executor.new(min_threads: 123, max_threads: 234)
+
     assert_equal 123, executor.minimum_threads
     assert_equal 234, executor.maximum_threads
   end
@@ -184,6 +190,7 @@ class ExecutorTest < Minitest::Test
     assert_equal 1, executor.available_threads
 
     executor.stop
+
     assert_equal 0, executor.available_threads
   ensure
     TestJobs::Blocking.block = false
@@ -196,6 +203,7 @@ class ExecutorTest < Minitest::Test
 
     executor = Exekutor.const_get(:Internal)::Executor::ThreadPoolExecutor.new
     executor.instance_variable_set(:@executor, mock_executor)
+
     assert_equal 4, executor.available_threads
   end
 
@@ -223,6 +231,7 @@ class ExecutorTest < Minitest::Test
     executor.prune_pool
     # wait for workers to exit
     sleep 0.1
+
     assert_equal 1, executor.instance_variable_get(:@executor).length
   ensure
     TestJobs::Blocking.block = false
@@ -232,6 +241,7 @@ class ExecutorTest < Minitest::Test
     job = { id: "test-job-to-destroy", payload: TestJobs::Simple.new.serialize, options: {},
             scheduled_at: Time.current }
     Exekutor::Job.expects(:destroy).with("test-job-to-destroy")
+
     assert executor.send(:delete_job, job)
   end
 
@@ -241,6 +251,7 @@ class ExecutorTest < Minitest::Test
             scheduled_at: Time.current }
     Exekutor::Job.expects(:destroy).with("test-job-to-destroy").raises(ActiveRecord::ConnectionNotEstablished)
     Exekutor.logger.expects(:error).at_least_once
+
     refute executor.send(:delete_job, job)
     assert_includes executor.pending_job_updates, "test-job-to-destroy"
     assert_equal :destroy, executor.pending_job_updates["test-job-to-destroy"]
@@ -249,6 +260,7 @@ class ExecutorTest < Minitest::Test
   def test_update_job
     job = { id: "test-job-to-update", payload: TestJobs::Simple.new.serialize, options: {}, scheduled_at: Time.current }
     Exekutor::Job.expects(:where).with(id: "test-job-to-update").returns(mock(update_all: true))
+
     assert executor.send(:update_job, job, status: "p", worker_id: nil)
   end
 
@@ -257,6 +269,7 @@ class ExecutorTest < Minitest::Test
     job = { id: "test-job-to-update", payload: TestJobs::Simple.new.serialize, options: {}, scheduled_at: Time.current }
     Exekutor::Job.expects(:where).with(id: "test-job-to-update").raises(ActiveRecord::ConnectionNotEstablished)
     Exekutor.logger.expects(:error).at_least_once
+
     refute executor.send(:update_job, job, status: "p", worker_id: nil)
     assert_includes executor.pending_job_updates, "test-job-to-update"
     assert_equal({ status: "p", worker_id: nil }, executor.pending_job_updates["test-job-to-update"])
@@ -268,6 +281,7 @@ class ExecutorTest < Minitest::Test
     job = { id: "test-job-to-update", payload: TestJobs::Simple.new.serialize, options: {}, scheduled_at: Time.current }
     Exekutor::Job.expects(:where).with(id: "test-job-to-update").raises(ActiveRecord::ConnectionNotEstablished)
     Exekutor.logger.expects(:error).at_least_once
+
     refute executor.send(:update_job, job, status: "p", worker_id: nil)
     assert_includes executor.pending_job_updates, "test-job-to-update"
     assert_equal({ test: "testing", status: "p", worker_id: nil },
@@ -280,6 +294,7 @@ class ExecutorTest < Minitest::Test
     job = { id: "test-job-to-update", payload: TestJobs::Simple.new.serialize, options: {}, scheduled_at: Time.current }
     Exekutor::Job.expects(:where).with(id: "test-job-to-update").raises(ActiveRecord::ConnectionNotEstablished)
     Exekutor.logger.expects(:error).at_least_once
+
     refute executor.send(:update_job, job, status: "p", worker_id: nil)
     assert_includes executor.pending_job_updates, "test-job-to-update"
     assert_equal(:destroy, executor.pending_job_updates["test-job-to-update"])
@@ -287,10 +302,12 @@ class ExecutorTest < Minitest::Test
 
   def test_default_max_threads
     Exekutor::Job.expects(:connection_db_config).returns(mock(pool: 5))
+
     assert_equal 4, executor.send(:default_max_threads)
     Exekutor::Job.unstub(:connection_db_config)
 
     Exekutor::Job.expects(:connection_db_config).returns(mock(pool: 1))
+
     assert_equal 1, executor.send(:default_max_threads)
     Exekutor::Job.unstub(:connection_db_config)
   end

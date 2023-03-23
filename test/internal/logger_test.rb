@@ -18,6 +18,7 @@ class LoggerTest < Minitest::Test
 
   def test_logger
     logger.expects(:tagged).with(["TestClass"]).returns(logger)
+
     assert_same logger, loggable.send(:logger)
     # Call twice to ensure the logger is cached
     loggable.send(:logger)

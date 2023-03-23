@@ -13,6 +13,7 @@ class ReserverTest < Minitest::Test
 
   def test_reserve_without_availability
     Exekutor::Job.expects(:connection).never
+
     refute reserver.reserve(0)
   end
 
@@ -47,6 +48,7 @@ class ReserverTest < Minitest::Test
         "scheduled_at" => scheduled_at
       }
     ])
+
     assert jobs
     assert_equal 2, jobs.length
     assert_equal({ id: "test-id-1", payload: { "key" => "value", "int" => 1234 },
@@ -85,6 +87,7 @@ class ReserverTest < Minitest::Test
     Exekutor::Job.expects(:executing).returns(mock_relation)
 
     jobs = reserver.get_abandoned_jobs([1, 2, 3])
+
     assert jobs
     assert_equal 2, jobs.length
     assert_equal({ id: "test-id-1", payload: { payload: "payload" }, options: { options: "options" },

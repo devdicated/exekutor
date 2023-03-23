@@ -7,6 +7,7 @@ class ActiveRecordTest < Minitest::Test
   def test_worker
     Exekutor::Info::Worker.create!(hostname: "test", pid: 12_345, info: { test: "test" })
     worker = Exekutor::Info::Worker.find_by hostname: "test", pid: 12_345
+
     refute_nil worker
     refute_nil worker.created_at
     refute_nil worker.last_heartbeat_at
@@ -48,6 +49,7 @@ class ActiveRecordTest < Minitest::Test
     active_job_id = SecureRandom.uuid
     Exekutor::Job.create!(queue: "test", priority: 1234, active_job_id: active_job_id, payload: { dummy: true })
     job = Exekutor::Job.find_by active_job_id: active_job_id
+
     refute_nil job
     refute_nil job.status
     refute_nil job.enqueued_at
@@ -63,6 +65,7 @@ class ActiveRecordTest < Minitest::Test
                                 payload: { dummy: true }, status: "executing", worker: worker)
     job.release!
     job = Exekutor::Job.find(job.id)
+
     refute_nil job
     assert_equal "pending", job.status
     refute job.worker_id
@@ -77,6 +80,7 @@ class ActiveRecordTest < Minitest::Test
     schedule_at = 1.minute.from_now
     job.reschedule! at: schedule_at
     job = Exekutor::Job.find(job.id)
+
     assert_equal "pending", job.status
     assert_equal schedule_at, job.scheduled_at
   ensure
@@ -87,6 +91,7 @@ class ActiveRecordTest < Minitest::Test
     job = Exekutor::Job.create!(queue: "test", priority: 1234, active_job_id: SecureRandom.uuid,
                                 payload: { dummy: true })
     job.discard!
+
     assert_equal ["discarded"], Exekutor::Job.where(id: job.id).pluck(:status)
   ensure
     job&.destroy
@@ -96,6 +101,7 @@ class ActiveRecordTest < Minitest::Test
     job = Exekutor::Job.create!(queue: "test", priority: 1234, active_job_id: SecureRandom.uuid,
                                 payload: { dummy: true })
     error = Exekutor::JobError.create!(job: job, error: { class: "ErrorClass", message: "Error message" })
+
     assert job.destroy
     refute Exekutor::JobError.exists? error.id
   end

@@ -45,6 +45,7 @@ class CallbacksTest < Minitest::Test
   def test_add_callback
     callback = -> {}
     callbacks.add_callback :on_event, "arg2", &callback
+
     assert_includes(callbacks.send(:__callbacks)[:on_event], [callback, ["arg2"]])
   end
 

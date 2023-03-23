@@ -31,6 +31,7 @@ class ConfigurationBuilderTest < Minitest::Test
 
   def test_batch_set
     config.set(string_option: "string", integer_option: 567, enum_option: :three)
+
     assert_equal "string", config.string_option
     assert_equal 567, config.integer_option
     assert_equal :three, config.enum_option

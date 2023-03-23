@@ -65,6 +65,7 @@ class HookTest < Minitest::Test
     hook_class.add_callback :before_startup, -> {}
 
     hook_class2 = Class.new { include ::Exekutor::Hook }
+
     assert_empty hook_class2.new.callbacks
   end
 end

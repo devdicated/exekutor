@@ -53,13 +53,14 @@ class WorkerTest < Minitest::Test
   end
 
   def test_id
-    refute_nil worker.record.id
+    assert_not_nil worker.record.id
     assert_equal worker.record.id, worker.id
   end
 
   def test_heartbeat
     expected_timestamp = 1.minute.ago
     worker.record.expects(:last_heartbeat_at).returns(expected_timestamp)
+
     assert_equal expected_timestamp, worker.last_heartbeat
   end
 
@@ -97,10 +98,12 @@ class WorkerTest < Minitest::Test
     end
 
     wait_until { join_called }
-    refute join_completed
+
+    assert_not join_completed
     worker.stop
     wait_until { worker.record.destroyed? }
     sleep(0.05)
+
     assert join_completed
   end
 
@@ -135,8 +138,9 @@ class WorkerTest < Minitest::Test
     wait_until { worker.record.destroyed? }
 
     worker = Exekutor::Worker.new(status_server_port: 12_345)
+
     assert(
-      worker.instance_variable_get(:@executables).any? { |e| e.is_a? Exekutor.const_get(:Internal)::StatusServer }
+      worker.instance_variable_get(:@executables).any?(Exekutor.const_get(:Internal)::StatusServer)
     )
   ensure
     worker&.kill
@@ -148,11 +152,13 @@ class WorkerTest < Minitest::Test
       worker.thread_stats
     )
     worker.instance_variable_get(:@executor).stubs(:available_threads).returns(1)
+
     assert_equal(
       { minimum: 1, maximum: 2, available: 1, usage_percent: 50 },
       worker.thread_stats
     )
     worker.instance_variable_get(:@executor).stubs(:available_threads).returns(0)
+
     assert_equal(
       { minimum: 1, maximum: 2, available: 0, usage_percent: 100 },
       worker.thread_stats

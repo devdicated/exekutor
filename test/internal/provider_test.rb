@@ -127,6 +127,7 @@ class ProviderTest < Minitest::Test
     Exekutor::Job.expects(:destroy).never
 
     provider.send(:perform_pending_job_updates)
+
     assert_equal({ 1 => { update: 123 }, 2 => :destroy }, updates)
   end
 
@@ -134,12 +135,14 @@ class ProviderTest < Minitest::Test
     scheduled_at = 5.minutes.from_now
     reserver.expects(:earliest_scheduled_at).returns(scheduled_at)
     provider.update_earliest_scheduled_at
+
     assert_equal scheduled_at, provider.send(:next_job_scheduled_at)
   end
 
   def test_update_earliest_scheduled_at_when_unknown
     scheduled_at = 5.minutes.from_now
     provider.update_earliest_scheduled_at(scheduled_at.to_f)
+
     assert_nil provider.send(:next_job_scheduled_at)
   end
 
@@ -150,6 +153,7 @@ class ProviderTest < Minitest::Test
 
     scheduled_at = 5.minutes.from_now.to_f
     provider.update_earliest_scheduled_at(scheduled_at)
+
     assert_equal Time.at(scheduled_at), provider.send(:next_job_scheduled_at)
   end
 
@@ -160,6 +164,7 @@ class ProviderTest < Minitest::Test
 
     scheduled_at = 5.minutes.from_now
     provider.update_earliest_scheduled_at(scheduled_at)
+
     assert_equal scheduled_at, provider.send(:next_job_scheduled_at)
   end
 
@@ -169,6 +174,7 @@ class ProviderTest < Minitest::Test
     provider.update_earliest_scheduled_at
 
     provider.update_earliest_scheduled_at(10.minutes.from_now)
+
     assert_equal scheduled_at, provider.send(:next_job_scheduled_at)
   end
 
@@ -233,6 +239,7 @@ class ProviderTest < Minitest::Test
     provider.instance_variable_get(:@next_poll_at).update { nil }
     provider.stubs(:polling_enabled?).returns(false)
     provider.stubs(:next_job_scheduled_at).returns(nil)
+
     assert_equal 300, provider.send(:wait_timeout)
   end
 
@@ -240,6 +247,7 @@ class ProviderTest < Minitest::Test
     Timecop.freeze do
       # Wait should not be called if the timout is within 1 ms
       provider.stubs(:next_job_scheduled_at).returns(Time.now + 0.001)
+
       assert_equal 0, provider.send(:wait_timeout)
     end
   end
@@ -248,6 +256,7 @@ class ProviderTest < Minitest::Test
     Timecop.freeze do
       provider.stubs(:next_job_scheduled_at).returns(20.seconds.from_now)
       provider.stubs(:next_poll_scheduled_at).returns(200.seconds.from_now)
+
       assert_equal 20, provider.send(:wait_timeout)
     end
   end
@@ -256,6 +265,7 @@ class ProviderTest < Minitest::Test
     Timecop.freeze do
       provider.stubs(:next_job_scheduled_at).returns(200.seconds.from_now)
       provider.stubs(:next_poll_scheduled_at).returns(20.seconds.from_now)
+
       assert_equal 20, provider.send(:wait_timeout)
     end
   end
@@ -263,6 +273,7 @@ class ProviderTest < Minitest::Test
   def test_reserve_jobs_now_with_poll
     Timecop.freeze do
       provider.stubs(:next_poll_scheduled_at).returns(Time.now + 0.001)
+
       assert provider.send(:reserve_jobs_now?)
     end
   end
@@ -271,6 +282,7 @@ class ProviderTest < Minitest::Test
     Timecop.freeze do
       provider.stubs(:next_poll_scheduled_at).returns(20.seconds.from_now)
       provider.stubs(:next_job_scheduled_at).returns(Time.now)
+
       assert provider.send(:reserve_jobs_now?)
     end
   end
@@ -278,6 +290,7 @@ class ProviderTest < Minitest::Test
   def test_reserve_jobs_now_with_future_job
     provider.stubs(:next_poll_scheduled_at).returns(20.seconds.from_now)
     provider.stubs(:next_job_scheduled_at).returns(40.seconds.from_now)
+
     refute provider.send(:reserve_jobs_now?)
   end
 
@@ -295,6 +308,7 @@ class ProviderTest < Minitest::Test
 
   def test_polling_interval_without_jitter
     provider.stubs(:polling_interval_jitter).returns(0)
+
     assert_equal 60, provider.send(:polling_interval)
     assert_equal 60, provider.send(:polling_interval)
   end

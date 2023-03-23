@@ -28,11 +28,13 @@ class ConfigurationTest < Minitest::Test
 
   def test_configure_with_arity
     ::Exekutor.configure { |config| config.default_queue_priority = 1234 }
+
     assert_equal 1234, Exekutor.config.default_queue_priority
   end
 
   def test_configure_without_arity
     ::Exekutor.configure { config.default_queue_priority = 5678 }
+
     assert_equal 5678, Exekutor.config.default_queue_priority
   end
 
@@ -47,6 +49,7 @@ class ConfigurationTest < Minitest::Test
 
   def test_default_queue_priority
     ::Exekutor.config.default_queue_priority = 1234
+
     assert_equal 1234, ::Exekutor.config.default_queue_priority
 
     mock_connection = mock
@@ -58,6 +61,7 @@ class ConfigurationTest < Minitest::Test
 
   def test_base_record_class_name
     config.base_record_class_name = "TestBaseRecord"
+
     assert_equal TestBaseRecord, config.base_record_class
   ensure
     # Reset back to the default value
@@ -80,6 +84,7 @@ class ConfigurationTest < Minitest::Test
 
   def test_json_serializer_string
     config.json_serializer = "TestSerializer"
+
     assert_kind_of TestSerializer, config.load_json_serializer
   ensure
     # Reset back to the default value
@@ -88,6 +93,7 @@ class ConfigurationTest < Minitest::Test
 
   def test_json_serializer_symbol
     config.json_serializer = :test_serializer
+
     assert_kind_of TestSerializer, config.load_json_serializer
   ensure
     # Reset back to the default value
@@ -98,6 +104,7 @@ class ConfigurationTest < Minitest::Test
     config.json_serializer = -> { TestSerializer }
 
     serializer = config.load_json_serializer
+
     assert_kind_of TestSerializer, serializer
     # Ensure the result is cached
     assert_same serializer, config.load_json_serializer
@@ -161,6 +168,7 @@ class ConfigurationTest < Minitest::Test
       status_server_handler: config.status_server_handler,
       healthcheck_timeout: config.healthcheck_timeout
     }
+
     assert_equal expected, config.worker_options
   end
 end

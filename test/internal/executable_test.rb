@@ -21,11 +21,14 @@ class ExecutableTest < Minitest::Test
 
   def test_compare_and_set_state
     executable.send(:set_state, :pending)
+
     assert_equal :pending, executable.state
     executable.send(:compare_and_set_state, :pending, :started)
+
     assert_equal :started, executable.state
 
     executable.send(:compare_and_set_state, :pending, :stopped)
+
     assert_equal :started, executable.state
   end
 
@@ -47,18 +50,22 @@ class ExecutableTest < Minitest::Test
 
     # Delay is around 65 (+- 5%) seconds at the fifth attempt
     executable.consecutive_errors.value = 5
+
     assert_in_delta 65.seconds, executable.restart_delay, 7.seconds
 
     # Delay is capped at 10.minutes
     executable.consecutive_errors.value = 15
+
     assert_in_delta 10.minutes, executable.restart_delay
 
     executable.consecutive_errors.value = 50
+
     assert_in_delta 10.minutes, executable.restart_delay
   end
 
   def test_maximum_consecutive_errors
     executable.consecutive_errors.value = 150
+
     assert_in_delta 10.minutes, executable.restart_delay
 
     Exekutor.expects(:on_fatal_error).with(kind_of(SystemExit))

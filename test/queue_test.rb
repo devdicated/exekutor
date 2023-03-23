@@ -15,14 +15,16 @@ class QueueTest < Minitest::Test
   def test_queue_job
     job = TestJobs::Simple.new
     queue.push(job)
-    assert ::Exekutor::Job.where(active_job_id: job.job_id).exists?
+
+    assert ::Exekutor::Job.exists?(active_job_id: job.job_id)
   end
 
   def test_queue_jobs
     jobs = [TestJobs::Simple.new, TestJobs::Simple.new]
     queue.push(*jobs)
+
     jobs.each do |job|
-      assert ::Exekutor::Job.where(active_job_id: job.job_id).exists?
+      assert ::Exekutor::Job.exists?(active_job_id: job.job_id)
     end
   end
 
@@ -31,7 +33,7 @@ class QueueTest < Minitest::Test
     job = TestJobs::Simple.new
     queue.schedule_at(job, schedule_at)
 
-    assert ::Exekutor::Job.where(active_job_id: job.job_id).exists?
+    assert ::Exekutor::Job.exists?(active_job_id: job.job_id)
     assert_equal [schedule_at], ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:scheduled_at)
   end
 
@@ -40,7 +42,7 @@ class QueueTest < Minitest::Test
     jobs = [TestJobs::Simple.new, TestJobs::Simple.new]
     queue.schedule_at(*jobs, schedule_at)
     jobs.each do |job|
-      assert ::Exekutor::Job.where(active_job_id: job.job_id).exists?
+      assert ::Exekutor::Job.exists?(active_job_id: job.job_id)
       assert_equal [schedule_at], ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:scheduled_at)
     end
   end
@@ -54,6 +56,7 @@ class QueueTest < Minitest::Test
     job = TestJobs::Simple.new
     job.queue_name = "test_queue_name"
     queue.push(job)
+
     assert_equal ["test_queue_name"], ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:queue)
   end
 
@@ -62,6 +65,7 @@ class QueueTest < Minitest::Test
     job = TestJobs::Simple.new
     job.priority = valid_priority
     queue.push(job)
+
     assert_equal [valid_priority], ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:priority)
   end
 
@@ -69,6 +73,7 @@ class QueueTest < Minitest::Test
     job = TestJobs::WithOptions.new
     Timecop.freeze do
       job.enqueue(queue_timeout: 1.hour)
+
       assert_equal [{ "start_execution_before" => 1.hour.from_now.to_f }],
                    ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:options)
     end
@@ -78,6 +83,7 @@ class QueueTest < Minitest::Test
     job = TestJobs::WithOptions.new
     Timecop.freeze do
       job.enqueue(execution_timeout: 1.hour)
+
       assert_equal [{ "execution_timeout" => 3600.0 }],
                    ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:options)
     end
@@ -88,14 +94,17 @@ class QueueTest < Minitest::Test
 
     job = TestJobs::Simple.new
     queue.schedule_at(job, schedule_at.to_i)
+
     assert_equal [schedule_at.change(nsec: 0)], ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:scheduled_at)
 
     job = TestJobs::Simple.new
     queue.schedule_at(job, schedule_at.to_f)
+
     assert_equal [schedule_at], ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:scheduled_at)
 
     job = TestJobs::Simple.new
     queue.schedule_at(job, schedule_at.to_date)
+
     assert_equal [schedule_at.at_beginning_of_day],
                  ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:scheduled_at)
   end
