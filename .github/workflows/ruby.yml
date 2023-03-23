@@ -41,10 +41,18 @@ jobs:
         ruby-version: ${{ matrix.ruby-version }}
         bundler-cache: true # runs 'bundle install' and caches installed gems automatically
 
+    - name: Run rubocop
+      run: bundle exec rubocop
+
+    - name: Run brakeman
+      run: bundle exec brakeman
+
     - name: Run tests
-      run: bundle exec rake
+      run: bundle exec rake test
       env:
-        DATABASE_HOST: 127.0.0.1
+        POSTGRES_HOST: postgres
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
       
     - uses: joshmfrankel/simplecov-check-action@main
       with:

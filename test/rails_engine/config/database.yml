@@ -3,4 +3,4 @@ test:
   host: <%= ENV['POSTGRES_HOST'] %>
   username: <%= ENV['POSTGRES_USER'] %>
   password: <%= ENV['POSTGRES_PASSWORD'] %>
-  database: <%= ENV['POSTGRES_HOST'] || 'combustion_test' %>
+  database: <%= ENV['POSTGRES_DB'] || 'combustion_test' %>

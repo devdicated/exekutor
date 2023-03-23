@@ -1,4 +1,5 @@
 ![Gem](https://img.shields.io/gem/v/exekutor?label=version)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/devdicated/exekutor/ruby.yml?label=tests)
 
 # _Say hello to_ Exekutor
 
