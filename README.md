@@ -1,3 +1,5 @@
+![Gem](https://img.shields.io/gem/v/exekutor?label=version)
+
 # _Say hello to_ Exekutor
 
 **Exekutor** is a PostgreSQL backed [active job](https://edgeguides.rubyonrails.org/active_job_basics.html) adapter,

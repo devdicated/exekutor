@@ -21,3 +21,6 @@ brakeman.html
 
 # Simplecov output
 /coverage
+
+# Ignore built gems
+*.gem
