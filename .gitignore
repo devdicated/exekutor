@@ -16,9 +16,6 @@ Gemfile.lock
 /test/rails_engine/log
 /test/rails_engine/db/*.sqlite
 
-# Brakeman output
-brakeman.html
-
 # Simplecov output
 /coverage
 

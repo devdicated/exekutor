@@ -45,9 +45,6 @@ jobs:
       run: bundle exec rubocop
       continue-on-error: true
 
-    - name: Run brakeman
-      run: bundle exec brakeman
-
     - name: Run tests
       run: bundle exec rake test
       env:

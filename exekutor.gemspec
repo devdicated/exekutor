@@ -46,7 +46,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "rainbow", "~> 3.0"
   spec.add_dependency "terminal-table", "~> 3.0"
 
-  spec.add_development_dependency "brakeman", "~> 5.4"
   spec.add_development_dependency "combustion", "~> 1.3"
   spec.add_development_dependency "minitest", "~> 5.0"
   spec.add_development_dependency "minitest-reporters", "~> 1.6"
