@@ -52,7 +52,7 @@ module Exekutor
       warn Rainbow(message).bright.red if message
       warn Rainbow(error).red
     end
-    unless ActiveSupport::Logger.logger_outputs_to?(logger, $stdout)
+    if config.quiet? || !ActiveSupport::Logger.logger_outputs_to?(logger, $stdout)
       logger.error message if message
       logger.error error
     end
