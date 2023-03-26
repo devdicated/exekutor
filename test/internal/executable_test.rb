@@ -15,12 +15,12 @@ class ExecutableTest < Minitest::Test
   end
 
   def test_invalid_state
-    assert_raises(ArgumentError) { executable.send(:set_state, nil) }
-    assert_raises(ArgumentError) { executable.send(:set_state, :invalid) }
+    assert_raises(ArgumentError) { executable.send(:state=, nil) }
+    assert_raises(ArgumentError) { executable.send(:state=, :invalid) }
   end
 
   def test_compare_and_set_state
-    executable.send(:set_state, :pending)
+    executable.send(:state=, :pending)
 
     assert_equal :pending, executable.state
     executable.send(:compare_and_set_state, :pending, :started)
@@ -34,25 +34,29 @@ class ExecutableTest < Minitest::Test
 
   def test_running
     TestClass::STATES.each do |state|
-      executable.send(:set_state, state)
+      executable.send(:state=, state)
       if state == :started
-        assert executable.running?
+        assert_predicate executable, :running?
       else
-        refute executable.running?
+        refute_predicate executable, :running?
       end
     end
   end
 
-  def test_restart_delay
+  def test_restart_delay_for_first_error
     # Delay starts out at 10 seconds
     assert_equal 0, executable.consecutive_errors.value
     assert_in_delta 10.seconds, executable.restart_delay
+  end
 
+  def test_restart_delay_for_fifth_error
     # Delay is around 65 (+- 5%) seconds at the fifth attempt
     executable.consecutive_errors.value = 5
 
     assert_in_delta 65.seconds, executable.restart_delay, 7.seconds
+  end
 
+  def test_maximum_restart_delay
     # Delay is capped at 10.minutes
     executable.consecutive_errors.value = 15
 

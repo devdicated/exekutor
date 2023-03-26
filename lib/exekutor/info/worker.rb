@@ -12,8 +12,8 @@ module Exekutor
 
       # Registers a heartbeat for this worker, if necessary
       def heartbeat!
-        now = Time.now.change(sec: 0)
-        touch :last_heartbeat_at, time: now if self.last_heartbeat_at.nil? || now >= self.last_heartbeat_at + 1.minute
+        now = Time.current.change(sec: 0)
+        touch :last_heartbeat_at, time: now if last_heartbeat_at.nil? || now >= last_heartbeat_at + 1.minute
       end
     end
   end

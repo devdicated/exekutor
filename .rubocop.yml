@@ -8,13 +8,11 @@ AllCops:
   TargetRailsVersion: 6.0
   NewCops: enable
 
-Style/StringLiterals:
-  Enabled: true
-  EnforcedStyle: double_quotes
-
-Style/StringLiteralsInInterpolation:
-  Enabled: true
-  EnforcedStyle: double_quotes
+# Does not play nice with Rubymine's alignment
+Layout/BeginEndAlignment:
+  EnforcedStyleAlignWith: begin
+Layout/HashAlignment:
+  Enabled: false
 
 Layout/LineLength:
   Max: 120
@@ -22,10 +20,43 @@ Layout/LineLength:
 Metrics/AbcSize:
   Exclude:
     - test/**/*
+
 Metrics/ClassLength:
   Exclude:
     - test/**/*
+
 Metrics/MethodLength:
   Max: 20
   Exclude:
     - test/**/*
+
+Performance/MethodObjectAsBlock:
+  Enabled: true
+  Exclude:
+    - test/**/*
+
+Rails/Output:
+  Exclude:
+    - lib/exekutor/internal/cli/**/*
+
+# Assert_not does not work in vanilla minitest
+Rails/RefuteMethods:
+  Enabled: false
+
+Rails/SquishedSQLHeredocs:
+  Enabled: false
+
+Rails/SkipsModelValidations:
+  Enabled: false
+
+# We do not display times so zone does not matter
+Rails/TimeZone:
+  Enabled: false
+
+Style/StringLiterals:
+  Enabled: true
+  EnforcedStyle: double_quotes
+
+Style/StringLiteralsInInterpolation:
+  Enabled: true
+  EnforcedStyle: double_quotes

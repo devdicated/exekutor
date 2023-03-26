@@ -94,6 +94,7 @@ class CallbacksTest < Minitest::Test
 
     assert_raises TestCallbacks::MissingYield do
       callbacks.emit_another_event "arg" do
+        puts "Should not be called"
       end
     end
   end

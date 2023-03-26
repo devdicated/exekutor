@@ -33,12 +33,12 @@ module Exekutor
 
       # Starts the executor
       def start
-        set_state :started
+        self.state = :started
       end
 
       # Stops the executor
       def stop
-        set_state :stopped
+        self.state = :stopped
 
         @executor.shutdown
       end
@@ -54,7 +54,7 @@ module Exekutor
       # Executes the job on one of the execution threads. Releases the job if there is no thread available to execute
       # the job.
       def post(job)
-        @executor.post job, &method(:execute)
+        @executor.post(job) { |*args| execute(*args) }
         @queued_job_ids.append(job[:id])
       rescue Concurrent::RejectedExecutionError
         logger.error "Ran out of threads! Releasing job #{job[:id]}"
@@ -108,7 +108,7 @@ module Exekutor
         @active_job_ids.delete(job[:id])
       end
 
-      def _execute(job, start_time: Concurrent.monotonic_time)
+      def _execute(job, start_time: Process.clock_gettime(Process::CLOCK_MONOTONIC))
         raise Exekutor::DiscardJob, "Maximum queue time expired" if queue_time_expired?(job)
 
         if (timeout = job[:options] && job[:options]["execution_timeout"]).present?
@@ -119,9 +119,9 @@ module Exekutor
           ActiveJob::Base.execute(job[:payload])
         end
 
-        on_job_completed(job, runtime: Concurrent.monotonic_time - start_time)
+        on_job_completed(job, runtime: Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time)
       rescue StandardError, JobExecutionTimeout => e
-        on_job_failed(job, e, runtime: Concurrent.monotonic_time - start_time)
+        on_job_failed(job, e, runtime: Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time)
       rescue Exception # rubocop:disable Lint/RescueException
         # Try to release job when an Exception occurs
         update_job job, status: "p", worker_id: nil
@@ -137,7 +137,9 @@ module Exekutor
       end
 
       def on_job_failed(job, error, runtime:)
-        discarded = [Exekutor::DiscardJob, JobExecutionTimeout].any?(&error.method(:is_a?))
+        discarded = [Exekutor::DiscardJob, JobExecutionTimeout].any? do |c|
+          error.is_a? c
+        end
         unless discarded
           Internal::Hooks.on(:job_failure, job, error)
           log_error error, "Job failed"
@@ -150,11 +152,9 @@ module Exekutor
         elsif @options[discarded ? :delete_discarded_jobs : :delete_failed_jobs]
           delete_job job
 
-        else
           # Try to update the job and create a JobError record if update succeeds
-          if update_job job, status: discarded ? "d" : "f", runtime: runtime
-            JobError.create!(job_id: job[:id], error: error)
-          end
+        elsif update_job job, status: discarded ? "d" : "f", runtime: runtime
+          JobError.create!(job_id: job[:id], error: error)
         end
       end
 
@@ -200,8 +200,9 @@ module Exekutor
       end
 
       def lost_db_connection?(error)
-        [ActiveRecord::StatementInvalid, ActiveRecord::ConnectionNotEstablished].any?(&error.method(:kind_of?)) &&
-          !ActiveRecord::Base.connection.active?
+        [ActiveRecord::StatementInvalid, ActiveRecord::ConnectionNotEstablished].any? do |error_class|
+          error.is_a? error_class
+        end && !ActiveRecord::Base.connection.active?
       end
 
       # The default maximum number of threads. The value is equal to the size of the DB connection pool minus 1, with

@@ -76,7 +76,7 @@ class ProviderTest < Minitest::Test
     provider.send(:logger).stubs(:debug)
 
     next_job_timestamp = provider.instance_variable_get(:@next_job_scheduled_at)
-    next_job_timestamp.expects(:set).with { |time| time < Time.now }
+    next_job_timestamp.expects(:set).with { |time| time < Time.now.to_f }
 
     provider.poll
     sleep(0.1)
@@ -183,7 +183,7 @@ class ProviderTest < Minitest::Test
   end
 
   def test_restart_on_error
-    error_class = Class.new(StandardError) {}
+    error_class = Class.new(StandardError)
 
     Exekutor.expects(:on_fatal_error).with(instance_of(error_class), "[Provider] Runtime error!")
     provider.send(:logger).expects(:info).with(regexp_matches(/^Restarting in \d+(.\d+)? seconds…$/))
@@ -205,7 +205,7 @@ class ProviderTest < Minitest::Test
   def test_provision_error
     reserver.unstub(:reserve)
 
-    error_class = Class.new(StandardError) {}
+    error_class = Class.new(StandardError)
     wait_until_executables_started
 
     executor.stubs(:available_threads).returns(123)
@@ -224,7 +224,7 @@ class ProviderTest < Minitest::Test
   end
 
   def test_wait_error
-    error_class = Class.new(StandardError) {}
+    error_class = Class.new(StandardError)
     Exekutor.expects(:on_fatal_error).with(instance_of(error_class), "[Provider] An error occurred while waiting")
             .at_least_once
     provider.instance_variable_get(:@event).expects(:wait).at_least_once.raises(error_class)
@@ -246,7 +246,7 @@ class ProviderTest < Minitest::Test
   def test_wait_timeout_with_immediate_job
     Timecop.freeze do
       # Wait should not be called if the timout is within 1 ms
-      provider.stubs(:next_job_scheduled_at).returns(Time.now + 0.001)
+      provider.stubs(:next_job_scheduled_at).returns(Time.now.to_f + 0.001)
 
       assert_equal 0, provider.send(:wait_timeout)
     end
@@ -254,8 +254,8 @@ class ProviderTest < Minitest::Test
 
   def test_wait_timeout_with_job_before_poll
     Timecop.freeze do
-      provider.stubs(:next_job_scheduled_at).returns(20.seconds.from_now)
-      provider.stubs(:next_poll_scheduled_at).returns(200.seconds.from_now)
+      provider.stubs(:next_job_scheduled_at).returns(20.seconds.from_now.to_f)
+      provider.stubs(:next_poll_scheduled_at).returns(200.seconds.from_now.to_f)
 
       assert_equal 20, provider.send(:wait_timeout)
     end
@@ -263,8 +263,8 @@ class ProviderTest < Minitest::Test
 
   def test_wait_timeout_with_poll_before_job
     Timecop.freeze do
-      provider.stubs(:next_job_scheduled_at).returns(200.seconds.from_now)
-      provider.stubs(:next_poll_scheduled_at).returns(20.seconds.from_now)
+      provider.stubs(:next_job_scheduled_at).returns(200.seconds.from_now.to_f)
+      provider.stubs(:next_poll_scheduled_at).returns(20.seconds.from_now.to_f)
 
       assert_equal 20, provider.send(:wait_timeout)
     end
@@ -272,7 +272,7 @@ class ProviderTest < Minitest::Test
 
   def test_reserve_jobs_now_with_poll
     Timecop.freeze do
-      provider.stubs(:next_poll_scheduled_at).returns(Time.now + 0.001)
+      provider.stubs(:next_poll_scheduled_at).returns(Time.now.to_f + 0.001)
 
       assert provider.send(:reserve_jobs_now?)
     end
@@ -280,16 +280,16 @@ class ProviderTest < Minitest::Test
 
   def test_reserve_jobs_now_with_immediate_job
     Timecop.freeze do
-      provider.stubs(:next_poll_scheduled_at).returns(20.seconds.from_now)
-      provider.stubs(:next_job_scheduled_at).returns(Time.now)
+      provider.stubs(:next_poll_scheduled_at).returns(20.seconds.from_now.to_f)
+      provider.stubs(:next_job_scheduled_at).returns(Time.now.to_f)
 
       assert provider.send(:reserve_jobs_now?)
     end
   end
 
   def test_reserve_jobs_now_with_future_job
-    provider.stubs(:next_poll_scheduled_at).returns(20.seconds.from_now)
-    provider.stubs(:next_job_scheduled_at).returns(40.seconds.from_now)
+    provider.stubs(:next_poll_scheduled_at).returns(20.seconds.from_now.to_f)
+    provider.stubs(:next_job_scheduled_at).returns(40.seconds.from_now.to_f)
 
     refute provider.send(:reserve_jobs_now?)
   end

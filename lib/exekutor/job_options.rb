@@ -34,7 +34,7 @@ module Exekutor
 
     # @private
     VALID_EXEKUTOR_OPTIONS = %i[queue_timeout execution_timeout].freeze
-    private_constant "VALID_EXEKUTOR_OPTIONS"
+    private_constant :VALID_EXEKUTOR_OPTIONS
 
     # @return [Hash<Symbol, Object>] the exekutor options for this job
     attr_reader :exekutor_options
@@ -74,12 +74,12 @@ module Exekutor
       # @private
       # @return [void]
       def validate_exekutor_options!(options)
-        return true unless options.present?
+        return true if options.blank?
 
         if (invalid_options = options.keys - VALID_EXEKUTOR_OPTIONS).present?
           raise InvalidOption, "Invalid option#{"s" if invalid_options.many?}: " \
-            "#{invalid_options.map(&:inspect).join(", ")}. " \
-            "Valid options are: #{VALID_EXEKUTOR_OPTIONS.map(&:inspect).join(", ")}"
+                               "#{invalid_options.map(&:inspect).join(", ")}. " \
+                               "Valid options are: #{VALID_EXEKUTOR_OPTIONS.map(&:inspect).join(", ")}"
         end
         if options[:queue_timeout] && !options[:queue_timeout].is_a?(ActiveSupport::Duration)
           raise InvalidOption, ":queue_timeout must be an instance of ActiveSupport::Duration"

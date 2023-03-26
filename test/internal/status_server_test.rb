@@ -41,28 +41,28 @@ class StatusServerTest < Minitest::Test
     # wait max 500 ms for the server to start
     wait_until { server.running? }
 
-    assert server.running?
+    assert_predicate server, :running?
 
     server.stop
     wait_until { !server.running? }
 
-    refute server.running?
+    refute_predicate server, :running?
   end
 
   def test_root
     get "/"
 
-    assert last_response.ok?
+    assert_predicate last_response, :ok?
     assert_match %r{GET /ready}, last_response.body
     assert_match %r{GET /live}, last_response.body
   end
 
   def test_live_happy_flow
-    worker.expects(running?: true, last_heartbeat: Time.now)
+    worker.expects(running?: true, last_heartbeat: Time.current)
 
     get "/live"
 
-    assert last_response.ok?
+    assert_predicate last_response, :ok?
   end
 
   def test_live_with_inactive_worker
@@ -82,21 +82,21 @@ class StatusServerTest < Minitest::Test
   end
 
   def test_live_with_inactive_connection
-    worker.expects(running?: true, last_heartbeat: Time.now)
+    worker.expects(running?: true, last_heartbeat: Time.current)
     Exekutor::Job.stubs(:connection).returns(stub(active?: false))
 
     get "/live"
 
-    assert last_response.ok?
+    assert_predicate last_response, :ok?
   end
 
   def test_ready_happy_flow
-    worker.expects(running?: true, last_heartbeat: Time.now)
+    worker.expects(running?: true, last_heartbeat: Time.current)
     Exekutor::Job.connection_pool.expects(:with_connection).yields(mock(active?: true))
 
     get "/ready"
 
-    assert last_response.ok?
+    assert_predicate last_response, :ok?
   end
 
   def test_ready_with_inactive_worker
@@ -117,7 +117,7 @@ class StatusServerTest < Minitest::Test
   end
 
   def test_ready_with_inactive_connection
-    worker.stubs(running?: true, last_heartbeat: Time.now)
+    worker.stubs(running?: true, last_heartbeat: Time.current)
     Exekutor::Job.connection_pool.expects(:with_connection).yields(mock(active?: false))
 
     get "/ready"
@@ -147,7 +147,7 @@ class StatusServerTest < Minitest::Test
   end
 
   def test_server_crash
-    error_class = Class.new(StandardError) {}
+    error_class = Class.new(StandardError)
     Exekutor.expects(:on_fatal_error).with(instance_of(error_class), includes("[Status server]"))
     Concurrent::ScheduledTask.expects(:execute).with(10.0, executor: pool)
     # Suppress logger output

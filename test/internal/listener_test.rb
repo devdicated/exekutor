@@ -33,7 +33,7 @@ class ListenerTest < Minitest::Test
   end
 
   def test_restart_on_error
-    error_class = Class.new(StandardError) {}
+    error_class = Class.new(StandardError)
 
     Exekutor.expects(:on_fatal_error).with(instance_of(error_class), "[Listener] Runtime error!")
     listener.send(:logger).expects(:info).with(regexp_matches(/^Restarting in \d+(.\d+)? seconds…$/))
@@ -89,7 +89,7 @@ class ListenerTest < Minitest::Test
     provider.expects(:update_earliest_scheduled_at).never
 
     Exekutor::Job.connection.exec_query(
-      %(NOTIFY "#{listener.class::JOB_ENQUEUED_CHANNEL}", 'id:test-id;q:test-queue;t:#{Time.now.to_f}';)
+      %(NOTIFY "#{listener.class::JOB_ENQUEUED_CHANNEL}", 'id:test-id;q:test-queue;t:#{Time.current.to_f}';)
     )
     sleep(0.1)
   end

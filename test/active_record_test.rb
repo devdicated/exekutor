@@ -4,7 +4,7 @@ require "rails_helper"
 require "timecop"
 
 class ActiveRecordTest < Minitest::Test
-  def test_worker
+  def test_worker # rubocop:disable Minitest/MultipleAssertions
     Exekutor::Info::Worker.create!(hostname: "test", pid: 12_345, info: { test: "test" })
     worker = Exekutor::Info::Worker.find_by hostname: "test", pid: 12_345
 
@@ -25,10 +25,10 @@ class ActiveRecordTest < Minitest::Test
     worker&.destroy
   end
 
-  def test_worker_heartbeat
+  def test_worker_heartbeat # rubocop:disable Minitest/MultipleAssertions
     worker = Exekutor::Info::Worker.create(hostname: "test", pid: 12_345, info: { dummy: true },
                                            last_heartbeat_at: 2.minutes.ago)
-    test_start = Time.now
+    test_start = Time.current
     Timecop.freeze test_start do
       assert worker.heartbeat!
       assert_equal test_start.change(sec: 0), worker.last_heartbeat_at
@@ -45,7 +45,7 @@ class ActiveRecordTest < Minitest::Test
     worker&.destroy
   end
 
-  def test_job
+  def test_job # rubocop:disable Minitest/MultipleAssertions
     active_job_id = SecureRandom.uuid
     Exekutor::Job.create!(queue: "test", priority: 1234, active_job_id: active_job_id, payload: { dummy: true })
     job = Exekutor::Job.find_by active_job_id: active_job_id

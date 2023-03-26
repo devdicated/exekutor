@@ -2,6 +2,7 @@
 
 require_relative "../rails_helper"
 
+# noinspection RubyInstanceMethodNamingConvention
 class ReserverTest < Minitest::Test
   attr_reader :reserver, :reserver_with_queues
 
@@ -34,39 +35,53 @@ class ReserverTest < Minitest::Test
 
   def test_job_parser
     scheduled_at = Time.current
-    jobs = reserver.send(:parse_jobs, [
-      {
-        "id" => "test-id-1",
-        "payload" => '{"key":"value","int": 1234}',
-        "options" => '{"option1":123,"option2":"value2"}',
-        "scheduled_at" => scheduled_at
-      },
-      {
-        "id" => "test-id-2",
-        "payload" => '{"key":"value3","int": 2345}',
-        "options" => '{"option1":456,"option2":"value22"}',
-        "scheduled_at" => scheduled_at
-      }
-    ])
+    jobs = reserver.send(:parse_jobs,
+                         [
+                           {
+                             "id" => "test-id-1",
+                             "payload" => '{"key":"value","int": 1234}',
+                             "options" => '{"option1":123,"option2":"value2"}',
+                             "scheduled_at" => scheduled_at
+                           },
+                           {
+                             "id" => "test-id-2",
+                             "payload" => '{"key":"value3","int": 2345}',
+                             "options" => '{"option1":456,"option2":"value22"}',
+                             "scheduled_at" => scheduled_at
+                           }
+                         ])
 
     assert jobs
-    assert_equal 2, jobs.length
-    assert_equal({ id: "test-id-1", payload: { "key" => "value", "int" => 1234 },
-                   options: { "option1" => 123, "option2" => "value2" }, scheduled_at: scheduled_at }, jobs.first)
-    assert_equal({ id: "test-id-2", payload: { "key" => "value3", "int" => 2345 },
-                   options: { "option1" => 456, "option2" => "value22" }, scheduled_at: scheduled_at }, jobs.second)
+    assert_equal([
+                   { id: "test-id-1", payload: { "key" => "value", "int" => 1234 },
+                     options: { "option1" => 123, "option2" => "value2" }, scheduled_at: scheduled_at },
+                   { id: "test-id-2", payload: { "key" => "value3", "int" => 2345 },
+                     options: { "option1" => 456, "option2" => "value22" }, scheduled_at: scheduled_at }
+                 ], jobs)
   end
 
-  def test_queue_filter_sql
+  def test_queue_filter_sql_without_queues
     refute reserver.send(:build_queue_filter_sql, nil)
     refute reserver.send(:build_queue_filter_sql, [])
+  end
+
+  def test_queue_filter_sql_with_single_queue
     assert_equal "AND queue = 'queue'", reserver.send(:build_queue_filter_sql, "queue")
     assert_equal "AND queue = 'queue'", reserver.send(:build_queue_filter_sql, :queue)
     assert_equal "AND queue = 'queue'", reserver.send(:build_queue_filter_sql, ["queue"])
+  end
+
+  def test_queue_filter_sql_with_multiple_queues
     assert_equal "AND queue IN ('queue1','queue2')", reserver.send(:build_queue_filter_sql, %w[queue1 queue2])
     assert_equal "AND queue IN ('queue1','queue2')", reserver.send(:build_queue_filter_sql, %i[queue1 queue2])
+  end
+
+  def test_queue_filter_sql_with_invalid_queue
     assert_raises(ArgumentError) { reserver.send(:build_queue_filter_sql, 1) }
     assert_raises(ArgumentError) { reserver.send(:build_queue_filter_sql, " ") }
+  end
+
+  def test_queue_filter_sql_with_invalid_queue_item
     assert_raises(ArgumentError) { reserver.send(:build_queue_filter_sql, ["queue", 1]) }
     assert_raises(ArgumentError) { reserver.send(:build_queue_filter_sql, ["queue", :""]) }
   end
@@ -89,11 +104,12 @@ class ReserverTest < Minitest::Test
     jobs = reserver.get_abandoned_jobs([1, 2, 3])
 
     assert jobs
-    assert_equal 2, jobs.length
-    assert_equal({ id: "test-id-1", payload: { payload: "payload" }, options: { options: "options" },
-                   scheduled_at: scheduled_at }, jobs.first)
-    assert_equal({ id: "test-id-2", payload: { payload: "payload2" }, options: { options: "options2" },
-                   scheduled_at: scheduled_at }, jobs.second)
+    assert_equal([
+                   { id: "test-id-1", payload: { payload: "payload" }, options: { options: "options" },
+                     scheduled_at: scheduled_at },
+                   { id: "test-id-2", payload: { payload: "payload2" }, options: { options: "options2" },
+                     scheduled_at: scheduled_at }
+                 ], jobs)
   end
 
   def test_get_earliest_scheduled_at

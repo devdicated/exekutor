@@ -48,9 +48,9 @@ jobs:
     - name: Run tests
       run: bundle exec rake test
       env:
-        POSTGRES_HOST: postgres
-        POSTGRES_USER: postgres
-        POSTGRES_PASSWORD: postgres
+        RAILS_DB_HOST: postgres
+        RAILS_DB_USER: postgres
+        RAILS_DB_PASSWORD: postgres
       
     - uses: joshmfrankel/simplecov-check-action@main
       with:

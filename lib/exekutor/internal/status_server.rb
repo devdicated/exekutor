@@ -31,7 +31,7 @@ module Exekutor
       end
 
       def stop
-        set_state :stopped
+        self.state = :stopped
         return unless @thread_running.value
 
         server = @server.value
@@ -58,7 +58,7 @@ module Exekutor
         Exekutor.on_fatal_error e, "[Status server] Runtime error!"
         if running?
           logger.info "Restarting in 10 seconds…"
-          Concurrent::ScheduledTask.execute(10.0, executor: @pool, &method(:start_thread))
+          Concurrent::ScheduledTask.execute(10.0, executor: @pool) { start_thread }
         end
       ensure
         @thread_running.make_false
@@ -71,62 +71,76 @@ module Exekutor
           @heartbeat_timeout = heartbeat_timeout
         end
 
+        def call(env)
+          case Rack::Request.new(env).path
+          when "/"
+            render_root
+          when "/ready"
+            render_ready
+          when "/live"
+            render_live
+          when "/threads"
+            render_threads
+          else
+            [404, {}, ["Not found"]]
+          end
+        end
+
+        private
+
         def flatlined?
           last_heartbeat = @worker.last_heartbeat
           last_heartbeat.nil? || last_heartbeat < @heartbeat_timeout.minutes.ago
         end
 
-        def call(env)
-          case Rack::Request.new(env).path
-          when "/"
-            [200, {}, [
-              <<~RESPONSE
-                [Exekutor]
-                 - Use GET /ready to check whether the worker is running and connected to the DB
-                 - Use GET /live to check whether the worker is running and is not hanging
-                 - Use GET /threads to check thread usage
-              RESPONSE
-            ]]
-          when "/ready"
-            running = @worker.running?
-            if running
-              Exekutor::Job.connection_pool.with_connection do |connection|
-                running = connection.active?
-              end
-            end
-            running = false if running && flatlined?
-            [(running ? 200 : 503), { "Content-Type" => "text/plain" }, [
-              "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}"
-            ]]
-          when "/live"
-            running = @worker.running?
-            last_heartbeat = if running
-                               @worker.last_heartbeat
-                             end
-            if running && (last_heartbeat.nil? || last_heartbeat < @heartbeat_timeout.minutes.ago)
-              running = false
-            end
-            [(running ? 200 : 503), { "Content-Type" => "text/plain" }, [
-              "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state};"\
-              " Heartbeat: #{last_heartbeat&.iso8601 || "null"}"
-            ]]
-          when "/threads"
-            if @worker.running?
-              info = @worker.thread_stats
-              [(info ? 200 : 503), { "Content-Type" => "application/json" }, [info.to_json]]
-            else
-              [503, { "Content-Type" => "application/json" }, [{ error: "Worker not running" }.to_json]]
-            end
+        def render_threads
+          if @worker.running?
+            info = @worker.thread_stats
+            [(info ? 200 : 503), { "Content-Type" => "application/json" }, [info.to_json]]
           else
-            [404, {}, ["Not found"]]
+            [503, { "Content-Type" => "application/json" }, [{ error: "Worker not running" }.to_json]]
           end
+        end
+
+        def render_live
+          running = @worker.running?
+          last_heartbeat = (@worker.last_heartbeat if running)
+          running = false if running && (last_heartbeat.nil? || last_heartbeat < @heartbeat_timeout.minutes.ago)
+          [(running ? 200 : 503), { "Content-Type" => "text/plain" }, [
+            "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}; " \
+            "Heartbeat: #{last_heartbeat&.iso8601 || "null"}"
+          ]]
+        end
+
+        def render_ready
+          running = @worker.running?
+          if running
+            Exekutor::Job.connection_pool.with_connection do |connection|
+              running = connection.active?
+            end
+          end
+          running = false if running && flatlined?
+          [(running ? 200 : 503), { "Content-Type" => "text/plain" }, [
+            "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}"
+          ]]
+        end
+
+        def render_root
+          [200, {}, [
+            <<~RESPONSE
+              [Exekutor]
+               - Use GET /ready to check whether the worker is running and connected to the DB
+               - Use GET /live to check whether the worker is running and is not hanging
+               - Use GET /threads to check thread usage
+            RESPONSE
+          ]]
         end
       end
 
       private
 
       def start_thread
-        @pool.post(@worker, @port, &method(:run)) if state == :started
+        @pool.post(@worker, @port) { |*args| run(*args) } if state == :started
       end
     end
   end

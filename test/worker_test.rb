@@ -53,7 +53,7 @@ class WorkerTest < Minitest::Test
   end
 
   def test_id
-    assert_not_nil worker.record.id
+    refute_nil worker.record.id
     assert_equal worker.record.id, worker.id
   end
 
@@ -99,7 +99,7 @@ class WorkerTest < Minitest::Test
 
     wait_until { join_called }
 
-    assert_not join_completed
+    refute join_completed
     worker.stop
     wait_until { worker.record.destroyed? }
     sleep(0.05)

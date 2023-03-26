@@ -14,14 +14,15 @@ module Exekutor
       # Indicates an unset value
       # @private
       DEFAULT_VALUE = Object.new.freeze
-      private_constant "DEFAULT_VALUE"
+      private_constant :DEFAULT_VALUE
 
       # Sets option values in bulk
       # @return [self]
       def set(**options)
         invalid_options = options.keys - __option_names
         if invalid_options.present?
-          raise error_class, "Invalid option#{"s" if invalid_options.many?}: #{invalid_options.map(&:inspect).join(", ")}"
+          raise error_class, "Invalid option#{"s" if invalid_options.many?}: #{
+            invalid_options.map(&:inspect).join(", ")}"
         end
 
         options.each do |name, value|
@@ -30,11 +31,13 @@ module Exekutor
         self
       end
 
-      module ClassMethods
+      class_methods do
         # Defines a configuration option with the given name.
         # @param name [Symbol] the name of the option
-        # @param required [Boolean] whether a value is required. If +true+, any +nil+ or +blank?+ value will not be allowed.
-        # @param type [Class,Array<Class>] the allowed value types. If set the value must be an instance of any of the given classes.
+        # @param required [Boolean] whether a value is required. If +true+, any +nil+ or +blank?+ value will not be
+        #   allowed.
+        # @param type [Class,Array<Class>] the allowed value types. If set the value must be an instance of any of the
+        #   given classes.
         # @param enum [Array<Any>] the allowed values. If set the value must be one of the given values.
         # @param range [Range] the allowed value range. If set the value must be included in this range.
         # @param default [Any] the default value
@@ -69,9 +72,9 @@ module Exekutor
       # Validates whether the option is present for configuration values that are required
       # raise [StandardError] if the value is nil or blank
       def validate_option_presence!(name, value)
-        unless value.present? || value.is_a?(FalseClass)
-          raise error_class, "##{name} cannot be #{value.nil? ? "nil" : "blank"}"
-        end
+        return if value.present? || value.is_a?(FalseClass)
+
+        raise error_class, "##{name} cannot be #{value.nil? ? "nil" : "blank"}"
       end
 
       # Validates whether the value class is allowed
@@ -79,7 +82,8 @@ module Exekutor
       def validate_option_type!(name, value, *allowed_types)
         return if allowed_types.include?(value.class)
 
-        raise error_class, "##{name} should be an instance of #{allowed_types.to_sentence(last_word_connector: ', or ')} (Actual: #{value.class})"
+        raise error_class, "##{name} should be an instance of #{
+          allowed_types.to_sentence(last_word_connector: ", or ")} (Actual: #{value.class})"
       end
 
       # Validates whether the value is a valid enum option
@@ -87,7 +91,8 @@ module Exekutor
       def validate_option_enum!(name, value, *allowed_values)
         return if allowed_values.include?(value)
 
-        raise error_class, "##{name} should be one of #{allowed_values.map(&:inspect).to_sentence(last_word_connector: ', or ')}"
+        raise error_class, "##{name} should be one of #{allowed_values.map(&:inspect)
+                                                                      .to_sentence(last_word_connector: ", or ")}"
       end
 
       # Validates whether the value falls in the allowed range
@@ -96,9 +101,7 @@ module Exekutor
         return if allowed_range.include?(value)
 
         raise error_class, "##{name} should be between #{allowed_range.first} and #{allowed_range.last}#{
-          if allowed_range.respond_to?(:exclude_end?) && allowed_range.exclude_end?
-            " (exclusive)"
-          end}"
+          " (exclusive)" if allowed_range.respond_to?(:exclude_end?) && allowed_range.exclude_end?}"
       end
 
       protected
@@ -106,7 +109,7 @@ module Exekutor
       # The error class to raise when an invalid option value is set
       # @return [Class<StandardError>]
       def error_class
-        raise "Implementing class should override #error_class"
+        raise NotImplementedError, "Implementing class should override #error_class"
       end
     end
   end

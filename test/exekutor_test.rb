@@ -17,7 +17,7 @@ class ExekutorTest < Minitest::Test
     TestJobs::Simple.executed = false
     test_job = TestJobs::Simple.set(queue: "integration-test-queue").perform_later
 
-    assert Exekutor::Job.where(active_job_id: test_job.job_id).exists?
+    assert_predicate Exekutor::Job.where(active_job_id: test_job.job_id), :exists?
 
     # LISTEN/NOTIFY trigger is not added to test DB
     worker.reserve_jobs

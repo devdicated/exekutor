@@ -41,7 +41,7 @@ module Exekutor
         unless method_name.is_a? Symbol
           raise ArgumentError, "method_name must be a Symbol (actual: #{method_name.class.name})"
         end
-        raise ArgumentError, "alias_to must be present" unless alias_to.present?
+        raise ArgumentError, "alias_to must be present" if alias_to.blank?
 
         if class_method
           raise ArgumentError, "##{method_name} does not exist" unless respond_to? method_name, true
@@ -115,18 +115,14 @@ module Exekutor
         end
       end
       if missing_keywords.present?
-        return ArgumentError.new "missing keyword#{
-          if missing_keywords.many?
-            "s"
-          end}: #{missing_keywords.map(&:inspect).join(", ")}"
+        return ArgumentError.new "missing keyword#{"s" if missing_keywords.many?}: #{
+          missing_keywords.map(&:inspect).join(", ")}"
       end
 
       if accepts_keywords
         if unknown_keywords.present?
-          return ArgumentError.new "unknown keyword#{
-            if unknown_keywords.many?
-              "s"
-            end}: #{unknown_keywords.map(&:inspect).join(", ")}"
+          return ArgumentError.new "unknown keyword#{"s" if unknown_keywords.many?}: #{
+            unknown_keywords.map(&:inspect).join(", ")}"
         end
       elsif kwargs.present?
         args += [kwargs]

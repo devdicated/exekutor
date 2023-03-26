@@ -2,6 +2,7 @@
 
 require_relative "exekutor/version"
 
+# The Exekutor namespace
 module Exekutor
   # Base error class
   class Error < StandardError; end
@@ -44,5 +45,5 @@ ActiveSupport.on_load(:active_record) do
   end
 end
 
-Exekutor.private_constant "Internal"
+Exekutor.private_constant :Internal
 ActiveSupport.run_load_hooks(:exekutor, Exekutor)

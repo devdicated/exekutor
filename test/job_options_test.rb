@@ -26,7 +26,7 @@ class JobOptionsTest < Minitest::Test
     enqueued_job = nil
     ActiveJob::Base.queue_adapter.expects(:enqueue).with(kind_of(TestJobs::WithOptions)) { |job| enqueued_job = job }
 
-    job_class = Class.new(ActiveJob::Base) do
+    job_class = Class.new(ActiveJob::Base) do # rubocop:disable Rails/ApplicationJob
       include Exekutor::JobOptions
       exekutor_options queue_timeout: 1.hour, execution_timeout: 1.minute
     end
@@ -40,6 +40,18 @@ class JobOptionsTest < Minitest::Test
   def test_invalid_options
     assert_raises(::Exekutor::JobOptions::InvalidOption) do
       TestJobs::WithOptions.exekutor_options(invalid_option: "invalid value")
+    end
+  end
+
+  def test_queue_timeout_value
+    assert_raises(::Exekutor::JobOptions::InvalidOption) do
+      TestJobs::WithOptions.exekutor_options(queue_timeout: "invalid value")
+    end
+  end
+
+  def test_execution_timeout_value
+    assert_raises(::Exekutor::JobOptions::InvalidOption) do
+      TestJobs::WithOptions.exekutor_options(execution_timeout: "invalid value")
     end
   end
 end

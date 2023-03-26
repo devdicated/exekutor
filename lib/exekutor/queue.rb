@@ -6,7 +6,7 @@ module Exekutor
     # Used when logging the SQL queries
     # @private
     ACTION_NAME = "Exekutor::Enqueue"
-    private_constant "ACTION_NAME"
+    private_constant :ACTION_NAME
 
     # Valid range for job priority
     # @private
@@ -38,7 +38,7 @@ module Exekutor
     # @param scheduled_at [Time,Date,Integer,Float] when the job should be performed
     # @return [void]
     def create_records(jobs, scheduled_at: nil)
-      unless jobs.is_a?(Array) && jobs.all? { |job| job.is_a?(ActiveJob::Base) }
+      unless jobs.is_a?(Array) && jobs.all?(ActiveJob::Base)
         raise ArgumentError, "jobs must be an array with ActiveJob items"
       end
 

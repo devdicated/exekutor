@@ -2,6 +2,7 @@
 
 module Exekutor
   module Internal
+    # The internal implementation of the Exekutor hooks
     class Hooks
       include Internal::Callbacks
 
@@ -21,10 +22,10 @@ module Exekutor
           callback.callbacks.each do |type, callbacks|
             callbacks.each { |cb| add_callback! type, [], cb }
           end
-        elsif block.arity == 1
-          block.call self
-        else
+        elsif block.arity.zero?
           instance_eval(&block)
+        else
+          yield self
         end
       end
 

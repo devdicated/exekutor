@@ -37,7 +37,7 @@ module Exekutor
   # Prints a message to STDOUT, unless {Exekutor::Configuration#quiet?} is true
   # @private
   def self.say(*args)
-    puts(*args) unless config.quiet?
+    puts(*args) unless config.quiet? # rubocop:disable Rails/Output
   end
 
   # Prints the error in the log and to STDERR (unless {Exekutor::Configuration#quiet?} is true)

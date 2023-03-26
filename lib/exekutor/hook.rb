@@ -27,7 +27,7 @@ module Exekutor
       before_enqueue around_enqueue after_enqueue before_job_execution around_job_execution after_job_execution
       on_job_failure on_fatal_error before_startup after_startup before_shutdown after_shutdown
     ].freeze
-    private_constant "CALLBACK_NAMES"
+    private_constant :CALLBACK_NAMES
 
     included do
       class_attribute :__callbacks, default: Hash.new { |h, k| h[k] = [] }
@@ -53,7 +53,6 @@ module Exekutor
     end
 
     class_methods do
-
       # @!method before_enqueue
       #   Registers a callback to be called before a job is enqueued.
       #   @param methods [Symbol] the method(s) to call
@@ -141,9 +140,9 @@ module Exekutor
 
       CALLBACK_NAMES.each do |name|
         module_eval <<-RUBY, __FILE__, __LINE__ + 1
-          def #{name}(*methods, &callback)
-            add_callback! :#{name}, methods, callback
-          end
+          def #{name}(*methods, &callback)            # def callback_name(*methods, &callback
+            add_callback! :#{name}, methods, callback #   add_callback! :callback_name, methods, callback
+          end                                         # end
         RUBY
       end
 

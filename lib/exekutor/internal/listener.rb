@@ -7,12 +7,15 @@ module Exekutor
   module Internal
     # Listens for jobs to be executed
     class Listener
-      include Executable, Logger
+      include Executable
+      include Logger
 
       # The PG notification channel for enqueued jobs
       JOB_ENQUEUED_CHANNEL = "exekutor::job_enqueued"
       # The PG notification channel for a worker. Must be formatted with the worker ID.
       PROVIDER_CHANNEL = "exekutor::worker::%s"
+
+      JOB_INFO_KEYS = %w[id q t].freeze
 
       # Creates a new listener
       # @param worker_id [String] the ID of the worker
@@ -21,7 +24,7 @@ module Exekutor
       # @param pool [ThreadPoolExecutor] the thread pool to use
       # @param wait_timeout [Integer] the time to listen for notifications
       # @param set_db_connection_name [Boolean] whether to set the application name on the DB connection
-      def initialize(worker_id:, queues: nil, provider:, pool:, wait_timeout: 60, set_db_connection_name: false)
+      def initialize(worker_id:, provider:, pool:, queues: nil, wait_timeout: 60, set_db_connection_name: false)
         super()
         @config = {
           worker_id: worker_id,
@@ -47,7 +50,7 @@ module Exekutor
 
       # Stops the listener
       def stop
-        set_state :stopped
+        self.state = :stopped
         begin
           Exekutor::Job.connection.execute(%(NOTIFY "#{provider_channel}"))
         rescue ActiveRecord::StatementInvalid, ActiveRecord::ConnectionNotEstablished
@@ -71,7 +74,7 @@ module Exekutor
 
       # Starts the listener thread
       def start_thread
-        @pool.post(&method(:run)) if running?
+        @pool.post { run } if running?
       end
 
       # Sets up the PG notifications and listens for new jobs
@@ -88,13 +91,13 @@ module Exekutor
         end
       rescue StandardError => e
         Exekutor.on_fatal_error e, "[Listener] Runtime error!"
-        set_state :crashed if e.is_a? UnsupportedDatabase
+        self.state = :crashed if e.is_a? UnsupportedDatabase
 
         if running?
           consecutive_errors.increment
           delay = restart_delay
           logger.info format("Restarting in %0.1f seconds…", delay)
-          Concurrent::ScheduledTask.execute(delay, executor: @pool, &method(:run))
+          Concurrent::ScheduledTask.execute(delay, executor: @pool) { run }
         end
       ensure
         @thread_running.make_false
@@ -110,13 +113,13 @@ module Exekutor
             next unless channel == JOB_ENQUEUED_CHANNEL
 
             job_info = begin
-                         payload.split(";").map { |el| el.split(":") }.to_h
+                         payload.split(";").to_h { |el| el.split(":") }
                        rescue StandardError
                          logger.error "Invalid notification payload: #{payload}"
                          next
                        end
-            unless %w[id q t].all? { |n| job_info[n].present? }
-              missing_keys = %w[id q t].select { |n| job_info[n].blank? }.join(", ")
+            unless JOB_INFO_KEYS.all? { |n| job_info[n].present? }
+              missing_keys = JOB_INFO_KEYS.select { |n| job_info[n].blank? }.join(", ")
               logger.error "[Listener] Notification payload is missing #{missing_keys}"
               next
             end

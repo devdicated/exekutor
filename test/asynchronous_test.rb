@@ -145,10 +145,7 @@ class AsynchronousTest < Minitest::Test
 
   def test_missing_args
     assert_raises(ArgumentError) { TestClass.method_with_args }
-    assert_raises(ArgumentError) { TestClass.method_with_kwargs }
     assert_raises(ArgumentError) { TestClass.method_with_rest }
-    assert_raises(ArgumentError) { TestClass.method_with_keyrest }
-    assert_raises(ArgumentError) { TestClass.method_with_mixed_args }
   end
 
   def test_extra_args
@@ -159,6 +156,8 @@ class AsynchronousTest < Minitest::Test
 
   def test_missing_kwargs
     assert_raises(ArgumentError, includes("kwarg1, kwarg2")) { TestClass.method_with_kwargs }
+    assert_raises(ArgumentError) { TestClass.method_with_keyrest }
+    assert_raises(ArgumentError) { TestClass.method_with_mixed_args }
   end
 
   def test_unknown_kwargs
@@ -169,6 +168,11 @@ class AsynchronousTest < Minitest::Test
 
   def test_nonexistent_method
     assert_raises(ArgumentError) { TestClass.send :perform_asynchronously, :nonexistent_method }
+  end
+
+  def test_invalid_method
+    assert_raises(ArgumentError) { TestClass.send :perform_asynchronously, 123 }
+    assert_raises(ArgumentError) { TestClass.send :perform_asynchronously, "test" }
   end
 
   def test_double_call_to_asyncronous
@@ -201,6 +205,16 @@ class AsynchronousTest < Minitest::Test
     assert_raises(Exekutor::Asynchronous::Error) do
       Exekutor::Asynchronous::AsyncMethodJob.perform_now TestClass, :not_an_async_method, []
     end
+  end
+
+  def test_unimplemented_parameter_type
+    Exekutor.expects(:say).with("Unsupported parameter type: :unimplemented")
+    mock_method = mock
+    mock_method.expects(:parameters).returns({ unimplemented: :type })
+
+    mock_object = mock
+    mock_object.expects(:method).with(:mock_method).returns(mock_method)
+    Exekutor::Asynchronous.send(:validate_args, mock_object, :mock_method)
   end
 
   class TestClass
@@ -237,7 +251,10 @@ class AsynchronousTest < Minitest::Test
 
       def method_with_keyrest(arg1:, **keyrest) end
 
-      def method_with_mixed_args(arg1, arg2 = nil, *rest, arg3:, arg4: 4, **keyrest) end # rubocop:disable Metrics/ParameterLists
+      # rubocop:disable Metrics/ParameterLists
+      def method_with_mixed_args(arg1, arg2 = nil, *rest, arg3:, arg4: 4, **keyrest) end
+
+      # rubocop:enable Metrics/ParameterLists
 
       def not_an_async_method; end
 

@@ -67,11 +67,14 @@ module Exekutor
                             end
             lambda do
               has_yielded = false
-              callback.call(*callback_args) { has_yielded = true; next_callback.call }
+              callback.call(*callback_args) do
+                has_yielded = true
+                next_callback.call
+              end
               raise MissingYield, "Callback did not yield!" unless has_yielded
             rescue StandardError => e
               raise if e.is_a? MissingYield
-              
+
               Exekutor.on_fatal_error e, "[Executor] Callback error!"
               next_callback.call
             end
@@ -108,12 +111,15 @@ module Exekutor
       end
 
       class_methods do
-        # Defines the specified callbacks on this class. Also defines a method with the given name to register the callback.
-        # @param callbacks [Symbol] the callback names to define. Must start with +on_+, +before_+, +after_+, or +around_+.
+        # Defines the specified callbacks on this class. Also defines a method with the given name to register the
+        # callback.
+        # @param callbacks [Symbol] the callback names to define. Must start with +on_+, +before_+, +after_+, or
+        #   +around_+.
         # @param freeze [Boolean] if true, freezes the callbacks so that no other callbacks can be defined
         # @raise [Error] if a callback name is invalid or if the callbacks are frozen
         def define_callbacks(*callbacks, freeze: true)
           raise Error, "Callbacks are frozen, no other callbacks may be defined" if __callback_names.frozen?
+
           callbacks.each do |name|
             unless /^(on_)|(before_)|(after_)|(around_)[a-z]+/.match? name.to_s
               raise Error, "Callback name must start with `on_`, `before_`, `after_`, or `around_`"
@@ -121,9 +127,9 @@ module Exekutor
 
             __callback_names << name
             module_eval <<-RUBY, __FILE__, __LINE__ + 1
-              def #{name}(*args, &callback)
-                add_callback! :#{name}, args, callback
-              end
+              def #{name}(*args, &callback)             # def callback_method(*args, &callback
+                add_callback! :#{name}, args, callback  #   add_callback! :callback_method, args, callback
+              end                                       # end
             RUBY
           end
 

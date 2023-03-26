@@ -34,8 +34,8 @@ module Exekutor
         @consecutive_errors
       end
 
-      # Calculates an exponential delay based on {#consecutive_errors}. The delay ranges from 10 seconds on the first error
-      # to 10 minutes from the 13th error on.
+      # Calculates an exponential delay based on {#consecutive_errors}. The delay ranges from 10 seconds on the first
+      # error to 10 minutes from the 13th error on.
       # @return [Float] The delay
       def restart_delay
         if @consecutive_errors.value > 150
@@ -43,7 +43,7 @@ module Exekutor
           Exekutor.on_fatal_error error
           raise error
         end
-        delay = (9 + @consecutive_errors.value ** 2.5)
+        delay = (9 + (@consecutive_errors.value**2.5))
         delay += delay * (rand(-5..5) / 100.0)
         delay.clamp(10.0, 600.0)
       end
@@ -52,7 +52,8 @@ module Exekutor
 
       # Changes the state to the given value if the current state matches the expected state. Does nothing otherwise.
       # @param expected_state [:pending,:started,:stopped,:crashed] the expected state
-      # @param new_state [:pending,:started,:stopped,:crashed] the state to change to if the current state matches the expected
+      # @param new_state [:pending,:started,:stopped,:crashed] the state to change to if the current state matches the
+      #   expected
       # @raise ArgumentError if an invalid state was passed
       def compare_and_set_state(expected_state, new_state)
         validate_state! new_state
@@ -61,7 +62,7 @@ module Exekutor
 
       # Updates the state to the given value
       # @raise ArgumentError if an invalid state was passed
-      def set_state(new_state)
+      def state=(new_state)
         validate_state! new_state
         @state.set new_state
       end

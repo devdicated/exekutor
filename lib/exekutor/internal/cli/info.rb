@@ -21,49 +21,18 @@ module Exekutor
           load_application(options[:environment], print_message: !quiet?)
 
           ActiveSupport.on_load(:active_record, yield: true) do
-            # Use system time zone
-            Time.zone = Time.new.zone
+            clear_application_loading_message unless quiet?
+            puts "(times are printed in the #{Time.zone.name} time zone)\n\n" if Time.zone.name != Time.new.zone
 
             hosts = Exekutor::Info::Worker.distinct.pluck(:hostname)
             job_info = Exekutor::Job.pending.order(:queue).group(:queue)
                                     .pluck(:queue, Arel.sql("COUNT(*)"), Arel.sql("MIN(scheduled_at)"))
 
-            clear_application_loading_message unless quiet?
             puts Rainbow("Workers").bright.blue
             if hosts.present?
               total_workers = 0
               hosts.each do |host|
-                table = Terminal::Table.new
-                table.title = host if hosts.many?
-                table.headings = ["id", "Status", "Last heartbeat"]
-                worker_count = 0
-                Exekutor::Info::Worker.where(hostname: host).each do |worker|
-                  worker_count += 1
-                  table << [
-                    worker.id.split("-").first << "…",
-                    worker.status,
-                    if worker.last_heartbeat_at.nil?
-                      if !worker.running?
-                        "N/A"
-                      elsif worker.created_at < 10.minutes.ago
-                        Rainbow("None").red
-                      else
-                        "None"
-                      end
-                    elsif worker.last_heartbeat_at > 2.minutes.ago
-                      worker.last_heartbeat_at.strftime "%R"
-                    elsif worker.last_heartbeat_at > 10.minutes.ago
-                      Rainbow(worker.last_heartbeat_at.strftime("%R")).yellow
-                    else
-                      Rainbow(worker.last_heartbeat_at.strftime("%D %R")).red
-                    end
-                  ]
-                  # TODO: switch / flag to print threads and queues
-                end
-                total_workers += worker_count
-                table.add_separator
-                table.add_row [(hosts.many? ? "Subtotal" : "Total"), { value: worker_count, alignment: :right, colspan: 2 }]
-                puts table
+                total_workers += print_host_info(host, options.merge(many_hosts: hosts.many?))
               end
 
               if hosts.many?
@@ -78,8 +47,7 @@ module Exekutor
               puts message
             end
 
-            puts " "
-            puts "#{Rainbow("Jobs").bright.blue}"
+            puts "\n#{Rainbow("Jobs").bright.blue}"
             if job_info.present?
               table = Terminal::Table.new
               table.headings = ["Queue", "Pending jobs", "Next job scheduled at"]
@@ -111,6 +79,55 @@ module Exekutor
         end
 
         private
+
+        def print_host_info(host, options)
+          many_hosts = options[:many_hosts]
+          table = Terminal::Table.new
+          table.title = host if many_hosts
+          table.headings = ["id", "Status", "Last heartbeat"]
+          worker_count = 0
+          Exekutor::Info::Worker.where(hostname: host).each do |worker|
+            worker_count += 1
+            table << worker_info_row(worker)
+          end
+          table.add_separator
+          table.add_row [(many_hosts ? "Subtotal" : "Total"),
+                         { value: worker_count, alignment: :right, colspan: 2 }]
+          puts table
+          worker_count
+        end
+
+        def worker_info_row(worker)
+          [
+            worker.id.split("-").first << "…",
+            worker.status,
+            worker_heartbeat_column(worker)
+          ]
+        end
+
+        def worker_heartbeat_column(worker)
+          last_heartbeat_at = worker.last_heartbeat_at
+          if last_heartbeat_at
+            colorize_heartbeat(last_heartbeat_at)
+          elsif !worker.running?
+            "N/A"
+          elsif worker.created_at < 10.minutes.ago
+            Rainbow("None").red
+          else
+            "None"
+          end
+        end
+
+        def colorize_heartbeat(timestamp)
+          case Time.now - timestamp
+          when (10.minutes)..nil
+            Rainbow(timestamp.strftime("%D %R")).red
+          when (2.minutes)..(10.minutes)
+            Rainbow(timestamp.strftime("%R")).yellow
+          else
+            timestamp.strftime "%R"
+          end
+        end
 
         # @return [Boolean] Whether quiet mode is enabled. Overrides verbose mode.
         def quiet?

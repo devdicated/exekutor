@@ -23,10 +23,9 @@ module Exekutor
           load_application options[:environment], print_message: !quiet?
 
           ActiveSupport.on_load(:active_record, yield: true) do
-            # Use system time zone
-            Time.zone = Time.new.zone
-
             clear_application_loading_message unless quiet?
+            puts "(times are printed in the #{Time.zone.name} time zone)\n\n" if Time.zone.name != Time.new.zone
+
             timeout = options[:timeout] || options[:worker_timeout] || 4
             workers = cleaner.cleanup_workers timeout: timeout.hours
             return if quiet?
@@ -52,16 +51,12 @@ module Exekutor
           load_application options[:environment], print_message: !quiet?
 
           ActiveSupport.on_load(:active_record, yield: true) do
-            # Use system time zone
-            Time.zone = Time.new.zone
+            clear_application_loading_message unless quiet?
+            puts "(times are printed in the #{Time.zone.name} time zone)\n\n" if Time.zone.name != Time.new.zone
 
             clear_application_loading_message unless quiet?
             timeout = options[:timeout] || options[:job_timeout] || 48
-            status = if options[:job_status].is_a? Array
-                       options[:job_status]
-                     elsif options[:job_status] && options[:job_status] != DEFAULT_STATUSES
-                       options[:job_status]
-                     end
+            status = (options[:job_status] if options[:job_status] && options[:job_status] != DEFAULT_STATUSES)
             purged_count = cleaner.cleanup_jobs before: timeout.hours.ago, status: status
             return if quiet?
 

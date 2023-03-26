@@ -14,6 +14,7 @@ module Exekutor
         # @param print_message [Boolean] whether to print a loading message to STDOUT
         def load_application(environment, path = "config/environment.rb", print_message: false)
           return if @application_loaded
+
           if print_message
             printf LOADING_MESSAGE
             @loading_message_printed = true
@@ -25,14 +26,12 @@ module Exekutor
 
         # Clears the loading message if it was printed
         def clear_application_loading_message
-          if @loading_message_printed
-            printf "\r#{" " * LOADING_MESSAGE.length}\r"
-            @loading_message_printed = false
-          end
-        end
+          return unless @loading_message_printed
 
+          printf "\r#{" " * LOADING_MESSAGE.length}\r"
+          @loading_message_printed = false
+        end
       end
     end
   end
-
 end

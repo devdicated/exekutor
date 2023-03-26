@@ -1,6 +1,6 @@
 test:
   adapter:  postgresql
-  host: <%= ENV['POSTGRES_HOST'] %>
-  username: <%= ENV['POSTGRES_USER'] %>
-  password: <%= ENV['POSTGRES_PASSWORD'] %>
-  database: <%= ENV['POSTGRES_DB'] || 'combustion_test' %>
+  host: <%= ENV['RAILS_DB_HOST'] %>
+  username: <%= ENV['RAILS_DB_USER'] %>
+  password: <%= ENV['RAILS_DB_PASSWORD'] %>
+  database: <%= ENV['RAILS_DB_NAME'] || 'combustion_test' %>

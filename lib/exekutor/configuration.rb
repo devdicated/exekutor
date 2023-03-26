@@ -9,7 +9,7 @@ module Exekutor
 
     # @private
     DEFAULT_BASE_RECORD_CLASS = "ActiveRecord::Base"
-    private_constant "DEFAULT_BASE_RECORD_CLASS"
+    private_constant :DEFAULT_BASE_RECORD_CLASS
 
     # @!macro
     #   @!method $1
@@ -359,15 +359,15 @@ module Exekutor
 
   def self.configure(opts = nil, &block)
     raise ArgumentError, "opts must be a Hash" unless opts.nil? || opts.is_a?(Hash)
-    raise ArgumentError, "Either opts or a block must be given" unless opts.present? || block_given?
+    raise ArgumentError, "Either opts or a block must be given" unless opts.present? || block
 
     config.set(**opts) if opts
-    return unless block_given?
+    return unless block
 
-    if block.arity == 1
-      block.call config
-    else
+    if block.arity.zero?
       instance_eval(&block)
+    else
+      block.call config
     end
   end
 end

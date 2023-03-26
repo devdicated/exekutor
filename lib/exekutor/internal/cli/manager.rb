@@ -4,6 +4,7 @@ require_relative "application_loader"
 require_relative "default_option_value"
 require_relative "daemon"
 
+# rubocop:disable Style/FormatStringToken
 module Exekutor
   # @private
   module Internal
@@ -42,20 +43,20 @@ module Exekutor
             puts "Loading config file: #{path}" if verbose?
             config = begin
                        YAML.safe_load(File.read(path), symbolize_names: true)
-                     rescue => e
-                       raise Error, "Cannot read config file: #{path} (#{e.to_s})"
+                     rescue StandardError => e
+                       raise Error, "Cannot read config file: #{path} (#{e})"
                      end
             unless config.keys == [:exekutor]
-              raise Error, "Config should have an `exekutor` root node: #{path} (Found: #{config.keys.join(', ')})"
+              raise Error, "Config should have an `exekutor` root node: #{path} (Found: #{config.keys.join(", ")})"
             end
 
             # Remove worker specific options before calling Exekutor.config.set
             worker_options.merge! config[:exekutor].extract!(:queue, :status_server_port)
 
             begin
-              Exekutor.config.set **config[:exekutor]
-            rescue => e
-              raise Error, "Cannot load config file: #{path} (#{e.to_s})"
+              Exekutor.config.set(**config[:exekutor])
+            rescue StandardError => e
+              raise Error, "Cannot load config file: #{path} (#{e})"
             end
           end
 
@@ -107,7 +108,7 @@ module Exekutor
 
               ActiveSupport.on_load(:active_job, yield: true) do
                 puts "Worker #{worker.id} started (Use `#{Rainbow("ctrl + c").magenta}` to stop)" unless quiet?
-                puts "#{worker_options.pretty_inspect}" if verbose?
+                puts worker_options.pretty_inspect.to_s if verbose?
                 begin
                   worker.start
                   worker.join
@@ -140,11 +141,11 @@ module Exekutor
           wait_until = if options[:shutdown_timeout].nil? || options[:shutdown_timeout] == DEFAULT_FOREVER
                          nil
                        else
-                         Time.now + options[:shutdown_timeout]
+                         Time.now.to_f + options[:shutdown_timeout]
                        end
           while daemon.status?(:running, :not_owned)
             puts "Waiting for worker to finish…" unless quiet?
-            if wait_until && wait_until > Time.now
+            if wait_until && wait_until > Time.now.to_f
               Process.kill("TERM", pid)
               break
             end
@@ -211,13 +212,14 @@ module Exekutor
           raise GLI::CustomExit.new(nil, 1)
         end
 
+        # The default value for the pid file
         class DefaultPidFileValue < DefaultOptionValue
           def initialize
             super("tmp/pids/exekutor[.%{identifier}].pid")
           end
 
           def for_identifier(identifier)
-            if identifier.nil? || identifier.length.zero?
+            if identifier.nil? || identifier.empty? # rubocop:disable Rails/Blank – Rails is not loaded here
               "tmp/pids/exekutor.pid"
             else
               "tmp/pids/exekutor.#{identifier}.pid"
@@ -225,36 +227,50 @@ module Exekutor
           end
         end
 
+        # The default value for the config file
         class DefaultConfigFileValue < DefaultOptionValue
           def initialize
-            super('"config/exekutor.yml", overridden by "config/exekutor.%{identifier}.yml" if an identifier is specified')
+            super <<~DESC
+              "config/exekutor.yml", overridden by "config/exekutor.%{identifier}.yml" if an identifier is specified
+            DESC
           end
 
           def to_a(identifier = nil)
             files = []
-            files << %w[config/exekutor.yml config/exekutor.yaml]
-                       .lazy.map { |path| Rails.root.join(path) }
-                       .find { |path| File.exists? path }
-            if identifier.present?
-              files << %W[config/exekutor.#{identifier}.yml config/exekutor.#{identifier}.yaml]
-                         .lazy.map { |path| Rails.root.join(path) }
-                         .find { |path| File.exists? path }
+            %w[config/exekutor.yml config/exekutor.yaml].each do |path|
+              path = Rails.root.join(path)
+              if File.exist? path
+                files.append path
+                break
+              end
             end
-            files.compact
+            if identifier.present?
+              %W[config/exekutor.#{identifier}.yml config/exekutor.#{identifier}.yaml].each do |path|
+                path = Rails.root.join(path)
+                if File.exist? path
+                  files.append path
+                  break
+                end
+              end
+            end
+            files
           end
         end
 
         DEFAULT_PIDFILE = DefaultPidFileValue.new.freeze
         DEFAULT_CONFIG_FILES = DefaultConfigFileValue.new.freeze
 
-        DEFAULT_THREADS = DefaultOptionValue.new("Minimum: 1, Maximum: Active record pool size minus 1, with a minimum of 1").freeze
+        DEFAULT_THREADS = DefaultOptionValue.new(
+          "Minimum: 1, Maximum: Active record pool size minus 1, with a minimum of 1"
+        ).freeze
         DEFAULT_QUEUE = DefaultOptionValue.new("All queues").freeze
         DEFAULT_FOREVER = DefaultOptionValue.new("Forever").freeze
 
-        DEFAULT_CONFIGURATION = { set_db_connection_name: true }
+        DEFAULT_CONFIGURATION = { set_db_connection_name: true }.freeze
 
         class Error < StandardError; end
       end
     end
   end
 end
+# rubocop:enable Style/FormatStringToken

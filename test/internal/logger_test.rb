@@ -51,7 +51,7 @@ class LoggerTest < Minitest::Test
 
     Exekutor.expects(:warn).with(includes("log message"))
     Exekutor.expects(:warn).with(all_of(includes("StandardError"), includes("error message"),
-                                       includes("line1"), includes("line2"), includes("line3")))
+                                        includes("line1"), includes("line2"), includes("line3")))
 
     logger.expects(:error).with("log message")
     logger.expects(:error).with(all_of(includes("StandardError"), includes("error message"),

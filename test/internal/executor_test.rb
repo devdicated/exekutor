@@ -126,7 +126,7 @@ class ExecutorTest < Minitest::Test
   end
 
   def test_active_job_ids
-    assert_equal [], executor.active_job_ids
+    assert_empty executor.active_job_ids
 
     TestJobs::Blocking.block = true
     job = { id: "test-job-1234", payload: TestJobs::Blocking.new.serialize, options: {}, scheduled_at: Time.current }
@@ -140,7 +140,7 @@ class ExecutorTest < Minitest::Test
     TestJobs::Blocking.block = false
     wait_until_workers_finished
 
-    assert_equal [], executor.active_job_ids
+    assert_empty executor.active_job_ids
   ensure
     TestJobs::Blocking.block = false
   end
@@ -188,12 +188,14 @@ class ExecutorTest < Minitest::Test
     wait_until_workers_finished
 
     assert_equal 1, executor.available_threads
+  ensure
+    TestJobs::Blocking.block = false
+  end
 
+  def test_available_threads_when_stopped
     executor.stop
 
     assert_equal 0, executor.available_threads
-  ensure
-    TestJobs::Blocking.block = false
   end
 
   def test_available_jruby_workers

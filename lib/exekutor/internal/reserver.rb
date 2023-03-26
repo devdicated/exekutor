@@ -78,7 +78,7 @@ module Exekutor
 
         queues = queues.first if queues.is_a?(Array) && queues.one?
         if queues.is_a? Array
-          unless queues.all? { |q| (q.is_a?(String) || q.is_a?(Symbol)) && !q.blank? }
+          unless queues.all? { |q| (q.is_a?(String) || q.is_a?(Symbol)) && q.present? }
             raise ArgumentError, "queues contains an invalid value"
           end
 

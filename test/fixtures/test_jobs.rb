@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 module TestJobs
-  class Simple < ActiveJob::Base
+  class ApplicationJob < ActiveJob::Base; end
+
+  class Simple < ApplicationJob
     mattr_accessor :executed, default: false
 
     def perform
@@ -9,7 +11,7 @@ module TestJobs
     end
   end
 
-  class WithOptions < ActiveJob::Base
+  class WithOptions < ApplicationJob
     mattr_accessor :executed, default: false
     include Exekutor::JobOptions
 
@@ -18,7 +20,7 @@ module TestJobs
     end
   end
 
-  class Blocking < ActiveJob::Base
+  class Blocking < ApplicationJob
     mattr_accessor :block, default: true
 
     def perform
@@ -26,7 +28,7 @@ module TestJobs
     end
   end
 
-  class Raises < ActiveJob::Base
+  class Raises < ApplicationJob
     def perform(error = nil, message = nil)
       if error && message
         raise error, message

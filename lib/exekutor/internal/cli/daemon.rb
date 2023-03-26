@@ -31,11 +31,9 @@ module Exekutor
           return nil unless ::File.exist? pidfile
 
           pid = ::File.read(pidfile)
-          if pid.to_i.positive?
-            pid.to_i
-          else
-            raise Error, "Corrupt PID-file. Check #{pidfile}"
-          end
+          raise Error, "Corrupt PID-file. Check #{pidfile}" unless pid.to_i.positive?
+
+          pid.to_i
         end
 
         # The process status for this daemon. Possible states are:
@@ -48,8 +46,8 @@ module Exekutor
           pid = self.pid
           return :not_running if pid.nil?
 
-          # If sig is 0, then no signal is sent, but error checking is still performed; this can be used to check for the
-          # existence of a process ID or process group ID.
+          # If sig is 0, then no signal is sent, but error checking is still performed; this can be used to check for
+          # the existence of a process ID or process group ID.
           ::Process.kill(0, pid)
           :running
         rescue Errno::ESRCH
@@ -63,14 +61,14 @@ module Exekutor
         # @return [Boolean] whether the status matches
         # @see #status
         def status?(*statuses)
-          statuses.include? self.status
+          statuses.include? status
         end
 
         # Raises an {Error} if a daemon is already running. Deletes the pidfile is the process is dead.
         # @return [void]
         # @raise [Error] when the daemon is running
         def validate!
-          case self.status
+          case status
           when :running, :not_owned
             raise Error, "A worker is already running. Check #{pidfile}"
           else
@@ -97,7 +95,7 @@ module Exekutor
         # @return [void]
         # @see #pidfile
         def delete_pid
-          File.delete(pidfile) if File.exist?(pidfile)
+          FileUtils.rm_f(pidfile)
         end
 
         # Raised when spawning a daemon process fails

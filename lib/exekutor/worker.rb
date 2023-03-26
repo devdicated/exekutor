@@ -101,7 +101,7 @@ module Exekutor
     # @return true
     def stop
       Internal::Hooks.run :shutdown, self do
-        set_state :stopped
+        self.state = :stopped
         unless @record.destroyed?
           begin
             @record.update(status: "s")
@@ -164,9 +164,7 @@ module Exekutor
 
     def thread_stats
       available = @executor.available_threads
-      usage_percent = if @executor.running?
-                        ((1 - (available.to_f / @executor.maximum_threads)) * 100).round(2)
-                      end
+      usage_percent = (((100 - (available * 100.0 / @executor.maximum_threads))).round(2) if @executor.running?)
       {
         minimum: @executor.minimum_threads,
         maximum: @executor.maximum_threads,

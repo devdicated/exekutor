@@ -58,6 +58,8 @@ class ConfigurationBuilderTest < Minitest::Test
   end
 
   def test_invalid_config
-    assert_raises("Implementing class should override #error_class") { InvalidConfig.new.string_option = nil }
+    assert_raises(NotImplementedError, "Implementing class should override #error_class") do
+      InvalidConfig.new.string_option = nil
+    end
   end
 end

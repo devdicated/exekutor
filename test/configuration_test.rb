@@ -10,8 +10,7 @@ class TestSerializer
   def load(str) end
 end
 
-class InvalidSerializer
-end
+class InvalidSerializer; end # rubocop:disable Lint/EmptyClass
 
 # noinspection RubyInstanceMethodNamingConvention
 class ConfigurationTest < Minitest::Test
@@ -79,7 +78,9 @@ class ConfigurationTest < Minitest::Test
   def test_default_base_record_class_loading_error
     config.base_record_class_name = "ActiveRecord::Base"
     Object.expects(:const_get).with("::ActiveRecord::Base").raises(LoadError, "Test")
-    assert_raises("Cannot find ActiveRecord, did you install and load the gem?") { config.base_record_class }
+    assert_raises(Exekutor::Configuration::Error, "Cannot find ActiveRecord, did you install and load the gem?") do
+      config.base_record_class
+    end
   end
 
   def test_json_serializer_string
@@ -137,7 +138,7 @@ class ConfigurationTest < Minitest::Test
   end
 
   def test_default_set_db_connection_name
-    refute config.set_db_connection_name?
+    refute_predicate config, :set_db_connection_name?
   end
 
   def test_default_max_threads
