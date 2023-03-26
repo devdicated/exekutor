@@ -41,6 +41,7 @@ class AppsignalPluginTest < Minitest::Test
 
   def test_fatal_error
     ::Appsignal.expects(:add_exception).with(kind_of(StandardError))
+    ::Exekutor.expects(:print_error).with(kind_of(StandardError), nil)
     # Don't print the error to STDOUT
     ::Exekutor.config.stubs(:quiet?).returns(true)
     begin

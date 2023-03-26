@@ -11,6 +11,7 @@ class StatusServerTest < Minitest::Test
   def random_port
     server = TCPServer.new("127.0.0.1", 0)
     server.addr[1]
+    server.close
   end
 
   def app

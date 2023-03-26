@@ -41,12 +41,12 @@ class LoggerTest < Minitest::Test
   end
 
   def test_quiet_say
-    ::Exekutor.config.expects(:quiet?).returns(true)
+    ::Exekutor.config.stubs(:quiet?).returns(true)
     assert_output("") { ::Exekutor.say("test 2") }
   end
 
   def test_print_error
-    ::Exekutor.config.expects(:quiet?).returns(false)
+    ::Exekutor.config.stubs(:quiet?).returns(false)
     ActiveSupport::BacktraceCleaner.any_instance.expects(:clean).returns(%w[line1 line2 line3])
 
     Exekutor.expects(:warn).with(includes("log message"))
@@ -63,10 +63,11 @@ class LoggerTest < Minitest::Test
   end
 
   def test_print_error_with_stdout_logger
-    # Dont log to STDERR
-    ::Exekutor.config.expects(:quiet?).returns(true)
+    ::Exekutor.config.stubs(:quiet?).returns(false)
     ActiveSupport::BacktraceCleaner.any_instance.expects(:clean).returns(%w[line1 line2 line3])
 
+    Exekutor.expects(:warn).with(includes("log message"))
+    Exekutor.expects(:warn).with(includes("error message"))
     ActiveSupport::Logger.expects(:logger_outputs_to?).with(logger, $stdout).returns(true)
     logger.expects(:error).never
 
@@ -74,10 +75,12 @@ class LoggerTest < Minitest::Test
   end
 
   def test_print_error_quietly
-    ::Exekutor.config.expects(:quiet?).returns(true)
+    ::Exekutor.config.stubs(:quiet?).returns(true)
     ActiveSupport::BacktraceCleaner.any_instance.expects(:clean).returns(%w[line1 line2 line3])
 
-    $stderr.expects(:puts).never
+    Exekutor.expects(:warn).never
+    logger.expects(:error).with(includes("log message"))
+    logger.expects(:error).with(includes("error message"))
 
     Exekutor.print_error StandardError.new("error message"), "log message"
   end
