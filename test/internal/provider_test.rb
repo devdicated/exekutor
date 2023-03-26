@@ -105,9 +105,9 @@ class ProviderTest < Minitest::Test
     executor.expects(:pending_job_updates).returns([[1, { update: 123 }], [2, :destroy], [3, { other_update: "test" }]])
 
     Exekutor::Job.expects(:where).with(id: 1)
-                 .returns(mock.tap { |m| m.expects(:update_all).with(update: 123) })
+                 .returns(mock.tap { |m| m.expects(:update_all).with({ update: 123 }) })
     Exekutor::Job.expects(:where).with(id: 3)
-                 .returns(mock.tap { |m| m.expects(:update_all).with(other_update: "test") })
+                 .returns(mock.tap { |m| m.expects(:update_all).with({ other_update: "test" }) })
 
     Exekutor::Job.expects(:destroy).with(2)
 

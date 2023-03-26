@@ -90,7 +90,7 @@ class QueueTest < Minitest::Test
   end
 
   def test_scheduled_at_variants
-    schedule_at = 1.hour.from_now
+    schedule_at = 1.hour.from_now.round(6)
 
     job = TestJobs::Simple.new
     queue.schedule_at(job, schedule_at.to_i)

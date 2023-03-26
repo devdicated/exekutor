@@ -76,7 +76,7 @@ class AsynchronousTest < Minitest::Test
     refute_nil enqueued_job
     assert_equal [TestClass, :method_with_rest, [[1], { arg2: 2, arg3: 3 }]], enqueued_job.arguments
 
-    TestClass.expects(:__immediately_method_with_rest).with(1, { arg2: 2, arg3: 3 })
+    TestClass.expects(:__immediately_method_with_rest).with(1, arg2: 2, arg3: 3)
     enqueued_job.perform_now
   end
 
