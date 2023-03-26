@@ -83,7 +83,7 @@ module Exekutor
     # @raise [Error] when the class cannot be found, or does not respond to +#dump+ and +#load+
     # @return [Object]
     def load_json_serializer
-      raw_value = self.json_serializer
+      raw_value = json_serializer
       if defined?(@json_serializer_instance) && @json_serializer_instance[0] == raw_value
         return @json_serializer_instance[1]
       end
@@ -91,8 +91,8 @@ module Exekutor
       serializer = const_get :json_serializer
       unless serializer.respond_to?(:dump) && serializer.respond_to?(:load)
         serializer = serializer.call if serializer.respond_to?(:call)
-        unless serializer.respond_to?(:dump) && serializer.respond_to?(:load)
-          serializer = serializer.new if serializer.respond_to?(:new)
+        if !(serializer.respond_to?(:dump) && serializer.respond_to?(:load)) && serializer.respond_to?(:new)
+          serializer = serializer.new
         end
       end
       unless serializer.respond_to?(:dump) && serializer.respond_to?(:load)
@@ -305,7 +305,7 @@ module Exekutor
       {
         min_threads: min_execution_threads,
         max_threads: max_execution_threads,
-        max_thread_idletime: max_execution_thread_idletime,
+        max_thread_idletime: max_execution_thread_idletime
       }.tap do |opts|
         opts[:set_db_connection_name] = set_db_connection_name? unless set_db_connection_name.nil?
         %i[enable_listener delete_completed_jobs delete_discarded_jobs delete_failed_jobs].each do |option|
@@ -367,7 +367,7 @@ module Exekutor
     if block.arity.zero?
       instance_eval(&block)
     else
-      block.call config
+      yield config
     end
   end
 end

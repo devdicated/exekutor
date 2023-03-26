@@ -18,7 +18,7 @@ module Exekutor
                          raise ArgumentError, "Unsupported value for timeout: #{timeout.class}"
                        end
       # TODO: PG-NOTIFY each worker with an EXIT command
-      Exekutor::Info::Worker.where(%{"last_heartbeat_at"<?}, destroy_before).destroy_all
+      Exekutor::Info::Worker.where(%("last_heartbeat_at"<?), destroy_before).destroy_all
     end
 
     # Purges all jobs where scheduled at is before +before+. Only purges jobs with the given status, if no status is
@@ -37,14 +37,12 @@ module Exekutor
                        else
                          raise ArgumentError, "Unsupported value for before: #{before.class}"
                        end
-      unless [Array, String, Symbol, NilClass].any?(&status.method(:is_a?))
+      unless [Array, String, Symbol, NilClass].any? { |c| status.is_a? c }
         raise ArgumentError, "Unsupported value for status: #{status.class}"
       end
 
       jobs = Exekutor::Job.all
-      unless before.nil?
-        jobs.where!(%{"scheduled_at"<?}, destroy_before)
-      end
+      jobs.where!(%("scheduled_at"<?), destroy_before) unless before.nil?
       if status
         jobs.where! status: status
       else
