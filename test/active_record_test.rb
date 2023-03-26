@@ -77,7 +77,7 @@ class ActiveRecordTest < Minitest::Test
   def test_reschedule_job
     job = Exekutor::Job.create!(queue: "test", priority: 1234, active_job_id: SecureRandom.uuid,
                                 payload: { dummy: true }, status: "failed")
-    schedule_at = 1.minute.from_now
+    schedule_at = 1.minute.from_now.round(6)
     job.reschedule! at: schedule_at
     job = Exekutor::Job.find(job.id)
 

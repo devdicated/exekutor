@@ -29,7 +29,7 @@ class QueueTest < Minitest::Test
   end
 
   def test_queue_job_at
-    schedule_at = 1.hour.from_now
+    schedule_at = 1.hour.from_now.round(6)
     job = TestJobs::Simple.new
     queue.schedule_at(job, schedule_at)
 
@@ -38,7 +38,7 @@ class QueueTest < Minitest::Test
   end
 
   def test_queue_jobs_at
-    schedule_at = 1.hour.from_now
+    schedule_at = 1.hour.from_now.round(6)
     jobs = [TestJobs::Simple.new, TestJobs::Simple.new]
     queue.schedule_at(*jobs, schedule_at)
     jobs.each do |job|
