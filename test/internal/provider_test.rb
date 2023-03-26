@@ -136,7 +136,7 @@ class ProviderTest < Minitest::Test
     reserver.expects(:earliest_scheduled_at).returns(scheduled_at)
     provider.update_earliest_scheduled_at
 
-    assert_equal scheduled_at, provider.send(:next_job_scheduled_at)
+    assert_equal scheduled_at.to_f, provider.send(:next_job_scheduled_at)
   end
 
   def test_update_earliest_scheduled_at_when_unknown
@@ -154,7 +154,7 @@ class ProviderTest < Minitest::Test
     scheduled_at = 5.minutes.from_now.to_f
     provider.update_earliest_scheduled_at(scheduled_at)
 
-    assert_equal Time.at(scheduled_at), provider.send(:next_job_scheduled_at)
+    assert_equal scheduled_at, provider.send(:next_job_scheduled_at)
   end
 
   def test_update_earliest_scheduled_at_with_time
@@ -165,7 +165,7 @@ class ProviderTest < Minitest::Test
     scheduled_at = 5.minutes.from_now
     provider.update_earliest_scheduled_at(scheduled_at)
 
-    assert_equal scheduled_at, provider.send(:next_job_scheduled_at)
+    assert_equal scheduled_at.to_f, provider.send(:next_job_scheduled_at)
   end
 
   def test_update_earliest_scheduled_at_with_later_time
@@ -175,7 +175,7 @@ class ProviderTest < Minitest::Test
 
     provider.update_earliest_scheduled_at(10.minutes.from_now)
 
-    assert_equal scheduled_at, provider.send(:next_job_scheduled_at)
+    assert_equal scheduled_at.to_f, provider.send(:next_job_scheduled_at)
   end
 
   def test_update_earliest_scheduled_at_with_string

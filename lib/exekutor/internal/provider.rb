@@ -50,7 +50,7 @@ module Exekutor
 
         # Always poll at startup to fill up threads, use small jitter so workers started at the same time dont hit
         # the db at the same time
-        @next_poll_at.set (1 + (2 * Kernel.rand)).seconds.from_now
+        @next_poll_at.set (1 + (2 * Kernel.rand)).seconds.from_now.to_f
         start_thread
         true
       end
@@ -73,17 +73,17 @@ module Exekutor
       # argument is given. Updates the timestamp for the earliest job is a timestamp is given and that timestamp is
       # before the known timestamp. Does nothing if a timestamp is given and the earliest job timestamp is not known.
       # @param scheduled_at [Time,Numeric] the time a job is scheduled at
-      # @return [Time] the timestamp for the next job, or +nil+ if the timestamp is unknown or no jobs are pending
+      # @return [float,nil] the timestamp for the next job, or +nil+ if the timestamp is unknown or no jobs are pending
       def update_earliest_scheduled_at(scheduled_at = UNKNOWN)
         overwrite_unknown = false
         case scheduled_at
         when UNKNOWN
           # If we fetch the value from the DB, we can safely overwrite the UNKNOWN value
           overwrite_unknown = true
-          scheduled_at = @reserver.earliest_scheduled_at
-        when Numeric
-          scheduled_at = Time.zone.at(scheduled_at)
+          scheduled_at = @reserver.earliest_scheduled_at&.to_f
         when Time
+          scheduled_at = scheduled_at.to_f
+        when Numeric
           #  All good
         else
           raise ArgumentError, "scheduled_at must be a Time or Numeric"
@@ -92,7 +92,7 @@ module Exekutor
         updated = false
         scheduled_at = @next_job_scheduled_at.update do |current|
           if current == UNKNOWN
-            if overwrite_unknown || scheduled_at <= Time.now
+            if overwrite_unknown || scheduled_at <= Time.now.to_f
               updated = true
               scheduled_at
             else
@@ -105,6 +105,7 @@ module Exekutor
             current
           end
         end
+
         if scheduled_at == UNKNOWN
           nil
         else
