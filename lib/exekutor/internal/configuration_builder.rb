@@ -31,7 +31,7 @@ module Exekutor
         self
       end
 
-      class_methods do
+      class_methods do # rubocop:disable Metrics/BlockLength
         # Defines a configuration option with the given name.
         # @param name [Symbol] the name of the option
         # @param required [Boolean] whether a value is required. If +true+, any +nil+ or +blank?+ value will not be
@@ -42,20 +42,18 @@ module Exekutor
         # @param range [Range] the allowed value range. If set the value must be included in this range.
         # @param default [Any] the default value
         # @param reader [Symbol] the name of the reader method
+        # rubocop:disable Metrics/ParameterLists
         def define_option(name, required: false, type: nil, enum: nil, range: nil, default: DEFAULT_VALUE,
-                          reader: name)
+                          reader: name, &block)
+          # rubocop:enable Metrics/ParameterLists
           __option_names << name
-          if reader
-            define_method reader do
-              if instance_variable_defined? :"@#{name}"
-                instance_variable_get :"@#{name}"
-              elsif default.respond_to? :call
-                default.call
-              elsif default != DEFAULT_VALUE
-                default
-              end
-            end
-          end
+          define_reader(reader, name, default) if reader
+          define_writer(name, required, type, enum, range, &block)
+        end
+
+        private
+
+        def define_writer(name, required, type, enum, range)
           define_method "#{name}=" do |value|
             validate_option_presence! name, value if required
             validate_option_type! name, value, *type if type.present?
@@ -65,6 +63,18 @@ module Exekutor
 
             instance_variable_set :"@#{name}", value
             self
+          end
+        end
+
+        def define_reader(name, variable_name, default)
+          define_method name do
+            if instance_variable_defined? :"@#{variable_name}"
+              instance_variable_get :"@#{variable_name}"
+            elsif default.respond_to? :call
+              default.call
+            elsif default != DEFAULT_VALUE
+              default
+            end
           end
         end
       end

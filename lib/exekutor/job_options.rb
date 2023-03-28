@@ -69,7 +69,7 @@ module Exekutor
       end
 
       # Validates the exekutor job options passed to {#exekutor_options} and +#set+
-      # @param options [Hash<Symbol, Object>] the options to validate
+      # @param options [Hash<Symbol, Any>] the options to validate
       # @raise [InvalidOption] if any of the options are invalid
       # @private
       # @return [void]
@@ -81,15 +81,21 @@ module Exekutor
                                "#{invalid_options.map(&:inspect).join(", ")}. " \
                                "Valid options are: #{VALID_EXEKUTOR_OPTIONS.map(&:inspect).join(", ")}"
         end
-        if options[:queue_timeout] && !options[:queue_timeout].is_a?(ActiveSupport::Duration)
-          raise InvalidOption, ":queue_timeout must be an instance of ActiveSupport::Duration"
-        end
-        if options[:execution_timeout] && !options[:execution_timeout].is_a?(ActiveSupport::Duration)
-          raise InvalidOption, ":execution_timeout must be an instance of ActiveSupport::Duration"
-        end
-
+        JobOptions.validate_option_type! options, :queue_timeout, ::ActiveSupport::Duration
+        JobOptions.validate_option_type! options, :execution_timeout, ::ActiveSupport::Duration
         true
       end
+    end
+
+    # Validates the type of an option
+    # @param options [Hash<Symbol, Any>] the options
+    # @param name [Symbol] the name of the option to validate
+    # @param valid_type [Class] the valid type for the value
+    # @raise [InvalidOption] if the configured value is not an instance of +valid_type+
+    def self.validate_option_type!(options, name, valid_type)
+      return if options[name].nil? || options[name].is_a?(valid_type)
+
+      raise InvalidOption, ":#{name} must be an instance of #{valid_type.name} (given: #{options[name].class.name})"
     end
 
     # Raised when invalid options are given

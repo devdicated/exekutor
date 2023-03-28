@@ -7,16 +7,7 @@ module Exekutor
     # @param timeout [ActiveSupport::Duration,Numeric,Time] the timeout. Default: 4 hours
     # @return [Array<Exekutor::Info::Worker>] the purged workers
     def cleanup_workers(timeout: 4.hours)
-      destroy_before = case timeout
-                       when ActiveSupport::Duration
-                         timeout.ago
-                       when Numeric
-                         timeout.hours.ago
-                       when Date, Time
-                         timeout
-                       else
-                         raise ArgumentError, "Unsupported value for timeout: #{timeout.class}"
-                       end
+      destroy_before = parse_timeout_arg :timeout, timeout
       # TODO: PG-NOTIFY each worker with an EXIT command
       Exekutor::Info::Worker.where(%("last_heartbeat_at"<?), destroy_before).destroy_all
     end
@@ -27,16 +18,7 @@ module Exekutor
     # @param status [Array<String,Symbol>,String,Symbol] the statuses to purge. Default: All except +:pending+
     # @return [Integer] the number of purged jobs
     def cleanup_jobs(before: 48.hours.ago, status: nil)
-      destroy_before = case before
-                       when ActiveSupport::Duration
-                         before.ago
-                       when Numeric
-                         before.hours.ago
-                       when Date, Time
-                         before
-                       else
-                         raise ArgumentError, "Unsupported value for before: #{before.class}"
-                       end
+      destroy_before = parse_timeout_arg :before, before
       unless [Array, String, Symbol, NilClass].any? { |c| status.is_a? c }
         raise ArgumentError, "Unsupported value for status: #{status.class}"
       end
@@ -49,6 +31,25 @@ module Exekutor
         jobs = jobs.where.not(status: :p)
       end
       jobs.delete_all
+    end
+
+    private
+
+    # Converts timout argument to a Time
+    # @param name [Symbol,String] the name of the argument
+    # @param value [ActiveSupport::Duration,Numeric,Date,Time] the argument to parse
+    # @return [Date,Time] The point in time
+    def parse_timeout_arg(name, value)
+      case value
+      when ActiveSupport::Duration
+        value.ago
+      when Numeric
+        value.hours.ago
+      when Date, Time
+        value
+      else
+        raise ArgumentError, "Unsupported value for #{name}: #{value.class}"
+      end
     end
   end
 end

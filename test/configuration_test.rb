@@ -10,18 +10,22 @@ class TestSerializer
   def load(str) end
 end
 
-class InvalidSerializer; end # rubocop:disable Lint/EmptyClass
+class InvalidSerializer # rubocop:disable Lint/EmptyClass
+end
 
 # noinspection RubyInstanceMethodNamingConvention
 class ConfigurationTest < Minitest::Test
   attr_accessor :config
 
-  def before_setup
+  def setup
     super
     self.config = ::Exekutor::Configuration.new
+    ::Exekutor.stubs(:config).returns(config)
   end
 
   def test_config_present
+    ::Exekutor.unstub(:config)
+
     refute_nil ::Exekutor.config
   end
 
@@ -32,9 +36,19 @@ class ConfigurationTest < Minitest::Test
   end
 
   def test_configure_without_arity
-    ::Exekutor.configure { config.default_queue_priority = 5678 }
+    ::Exekutor.configure { config.default_queue_priority = 1234 }
 
-    assert_equal 5678, Exekutor.config.default_queue_priority
+    assert_equal 1234, Exekutor.config.default_queue_priority
+  end
+
+  def test_configure_with_hash
+    ::Exekutor.configure(default_queue_priority: 1234)
+
+    assert_equal 1234, Exekutor.config.default_queue_priority
+  end
+
+  def test_configure_with_invalid_arg
+    assert_raises(ArgumentError) { ::Exekutor.configure(:invalid_arg) }
   end
 
   def test_invalid_default_queue_priority
@@ -47,9 +61,7 @@ class ConfigurationTest < Minitest::Test
   end
 
   def test_default_queue_priority
-    ::Exekutor.config.default_queue_priority = 1234
-
-    assert_equal 1234, ::Exekutor.config.default_queue_priority
+    config.default_queue_priority = 1234
 
     mock_connection = mock
     mock_connection.expects(:exec_query).with(anything, anything, includes(1234), anything)

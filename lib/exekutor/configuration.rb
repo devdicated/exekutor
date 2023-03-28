@@ -73,8 +73,7 @@ module Exekutor
     #     @param value [String,Symbol,Proc,Object] the serializer
     #     @return [self]
     define_option :json_serializer, default: "::JSON", required: true do |value|
-      unless value.is_a?(String) || value.is_a?(Symbol) || value.respond_to?(:call) ||
-        (value.respond_to?(:dump) && value.respond_to?(:load))
+      unless value.is_a?(String) || value.is_a?(Symbol) || value.respond_to?(:call) || SerializerValidator.valid?(value)
         raise Error, "#json_serializer must either be a String, a Proc, or respond to #dump and #load"
       end
     end
@@ -89,18 +88,7 @@ module Exekutor
       end
 
       serializer = const_get :json_serializer
-      unless serializer.respond_to?(:dump) && serializer.respond_to?(:load)
-        serializer = serializer.call if serializer.respond_to?(:call)
-        if !(serializer.respond_to?(:dump) && serializer.respond_to?(:load)) && serializer.respond_to?(:new)
-          serializer = serializer.new
-        end
-      end
-      unless serializer.respond_to?(:dump) && serializer.respond_to?(:load)
-        raise Error, <<~MSG.squish
-          The configured serializer (#{serializer.class}) does not respond to #dump and #load
-        MSG
-      end
-
+      serializer = SerializerValidator.try_convert! serializer unless SerializerValidator.valid? serializer
       @json_serializer_instance = [raw_value, serializer]
       serializer
     end
@@ -351,6 +339,35 @@ module Exekutor
     def error_class
       Error
     end
+
+    # Validates the value for a serializer, which must implement dump & load
+    class SerializerValidator
+      # @param serializer [Any] the value to validate
+      # @return [Boolean] whether the serializer has implemented dump & load
+      def self.valid?(serializer)
+        serializer.respond_to?(:dump) && serializer.respond_to?(:load)
+      end
+
+      # @param serializer [Any] the value to convert
+      # @return [#dump&#load]
+      # @raise [Error] if the serializer has not implemented dump & load
+      def self.try_convert!(serializer)
+        return serializer if SerializerValidator.valid? serializer
+
+        if serializer.respond_to?(:call)
+          serializer = serializer.call
+          return serializer if SerializerValidator.valid? serializer
+        end
+        if serializer.respond_to?(:new)
+          serializer = serializer.new
+          return serializer if SerializerValidator.valid? serializer
+        end
+
+        raise Error, <<~MSG.squish
+          The configured serializer (#{serializer.class}) does not respond to #dump and #load
+        MSG
+      end
+    end
   end
 
   def self.config
@@ -358,16 +375,20 @@ module Exekutor
   end
 
   def self.configure(opts = nil, &block)
-    raise ArgumentError, "opts must be a Hash" unless opts.nil? || opts.is_a?(Hash)
-    raise ArgumentError, "Either opts or a block must be given" unless opts.present? || block
+    raise ArgumentError, "either opts or a block must be given" unless opts || block
 
-    config.set(**opts) if opts
-    return unless block
+    if opts
+      raise ArgumentError, "opts must be a Hash" unless opts.is_a?(Hash)
 
-    if block.arity.zero?
-      instance_eval(&block)
-    else
-      yield config
+      config.set(**opts)
     end
+    if block
+      if block.arity.zero?
+        instance_eval(&block)
+      else
+        yield config
+      end
+    end
+    self
   end
 end

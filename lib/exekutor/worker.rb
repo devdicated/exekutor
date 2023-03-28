@@ -44,12 +44,7 @@ module Exekutor
                                                         :delete_completed_jobs, :delete_discarded_jobs,
                                                         :delete_failed_jobs))
 
-      provider_threads = 1
-      provider_threads += 1 if config.fetch(:enable_listener, true)
-      provider_threads += 1 if config[:status_server_port].to_i.positive?
-
-      provider_pool = Concurrent::FixedThreadPool.new provider_threads, max_queue: provider_threads,
-                                                      name: "exekutor-provider"
+      provider_pool = create_provider_pool(config)
 
       @provider = Internal::Provider.new reserver: @reserver, executor: @executor, pool: provider_pool,
                                          **provider_options(config)
@@ -110,8 +105,7 @@ module Exekutor
           end
         end
         @executables.reverse_each(&:stop)
-
-        wait_for_termination @config[:wait_for_termination] if @config[:wait_for_termination]
+        wait_for_termination @config[:wait_for_termination]
 
         begin
           @record.destroy
@@ -174,6 +168,14 @@ module Exekutor
     end
 
     private
+
+    def create_provider_pool(config)
+      provider_threads = 1
+      provider_threads += 1 if config.fetch(:enable_listener, true)
+      provider_threads += 1 if config[:status_server_port].to_i.positive?
+
+      Concurrent::FixedThreadPool.new provider_threads, max_queue: provider_threads, name: "exekutor-provider"
+    end
 
     def provider_options(worker_options)
       worker_options.slice(:polling_interval, :polling_jitter).transform_keys do |key|

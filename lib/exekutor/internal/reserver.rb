@@ -72,22 +72,35 @@ module Exekutor
       # Builds SQL filter for the given queues
       def build_queue_filter_sql(queues)
         return nil if queues.nil? || (queues.is_a?(Array) && queues.empty?)
-        unless queues.is_a?(String) || queues.is_a?(Symbol) || queues.is_a?(Array)
-          raise ArgumentError, "queues must be nil, a String, Symbol, or an array of Strings or Symbols"
-        end
 
         queues = queues.first if queues.is_a?(Array) && queues.one?
-        if queues.is_a? Array
-          unless queues.all? { |q| (q.is_a?(String) || q.is_a?(Symbol)) && q.present? }
-            raise ArgumentError, "queues contains an invalid value"
-          end
+        validate_queues! queues
 
+        if queues.is_a? Array
           Exekutor::Job.sanitize_sql_for_conditions(["AND queue IN (?)", queues])
         else
-          raise ArgumentError, "queue name cannot be empty" if queues.blank?
-
           Exekutor::Job.sanitize_sql_for_conditions(["AND queue = ?", queues])
         end
+      end
+
+      # Raises an error if the queues value is invalid
+      # @param queues [String,Symbol,Array<String,Symbol>] the queues to validate
+      # @raise [ArgumentError] if the queue is invalid or includes an invalid value
+      def validate_queues!(queues)
+        case queues
+        when Array
+          raise ArgumentError, "queues contains an invalid value" unless queues.all? { |queue| valid_queue_name? queue }
+        when String, Symbol
+          raise ArgumentError, "queue name cannot be empty" unless valid_queue_name? queues
+        else
+          raise ArgumentError, "queues must be nil, a String, Symbol, or an array of Strings or Symbols"
+        end
+      end
+
+      # @param queue [String,Symbol] the name of a queue
+      # @return [Boolean] whether the name is a valid queue name
+      def valid_queue_name?(queue)
+        (queue.is_a?(String) || queue.is_a?(Symbol)) && queue.present? && queue.length <= Queue::MAX_NAME_LENGTH
       end
     end
   end

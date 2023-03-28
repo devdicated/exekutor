@@ -88,8 +88,7 @@ module Exekutor
 
         private
 
-        def flatlined?
-          last_heartbeat = @worker.last_heartbeat
+        def flatlined?(last_heartbeat = @worker.last_heartbeat)
           last_heartbeat.nil? || last_heartbeat < @heartbeat_timeout.minutes.ago
         end
 
@@ -105,7 +104,7 @@ module Exekutor
         def render_live
           running = @worker.running?
           last_heartbeat = (@worker.last_heartbeat if running)
-          running = false if running && (last_heartbeat.nil? || last_heartbeat < @heartbeat_timeout.minutes.ago)
+          running = false if flatlined?(last_heartbeat)
           [(running ? 200 : 503), { "Content-Type" => "text/plain" }, [
             "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}; " \
             "Heartbeat: #{last_heartbeat&.iso8601 || "null"}"

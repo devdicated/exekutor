@@ -51,45 +51,21 @@ module Exekutor
       # @param type [:on, :before, :around, :after] the type of the callback
       # @param action [Symbol] the name of the callback
       # @param args [Any] the callback args
-      def run_callbacks(type, action, *args)
+      def run_callbacks(type, action, *args, &block)
         callbacks = __callbacks && __callbacks[:"#{type}_#{action}"]
         unless callbacks
-          yield(*args) if block_given?
+          yield(*args) if block
           return
         end
         if type == :around
-          # Chain all callbacks together, ending with the original given block
-          callbacks.inject(-> { yield(*args) }) do |next_callback, (callback, extra_args)|
-            callback_args = if callback.arity.zero?
-                              []
-                            else
-                              args + extra_args
-                            end
-            lambda do
-              has_yielded = false
-              callback.call(*callback_args) do
-                has_yielded = true
-                next_callback.call
-              end
-              raise MissingYield, "Callback did not yield!" unless has_yielded
-            rescue StandardError => e
-              raise if e.is_a? MissingYield
-
-              Exekutor.on_fatal_error e, "[Executor] Callback error!"
-              next_callback.call
-            end
-          end.call
-          return
-        end
-        iterator = type == :after ? :each : :reverse_each
-        callbacks.send(iterator) do |(callback, extra_args)|
-          if callback.arity.zero?
-            callback.call
-          else
-            callback.call(*(args + extra_args))
+          chain_callbacks(callbacks, args, &block).call
+        else
+          # Invoke :before in reverse order (last registered first),
+          # invoke :after in original order (last registered last)
+          iterator = type == :after ? :each : :reverse_each
+          callbacks.send(iterator) do |(callback, extra_args)|
+            invoke_callback(callback, args, extra_args)
           end
-        rescue StandardError => e
-          Exekutor.on_fatal_error e, "[Executor] Callback error!"
         end
         nil
       end
@@ -103,6 +79,41 @@ module Exekutor
       end
 
       private
+
+      # Chain all callbacks together, ending with the original given block
+      def chain_callbacks(callbacks, args)
+        callbacks.inject(-> { yield(*args) }) do |next_callback, (callback, extra_args)|
+          # collect args outside of the lambda
+          callback_args = if callback.arity.zero?
+                            []
+                          else
+                            args + extra_args
+                          end
+          lambda do
+            has_yielded = false
+            callback.call(*callback_args) do
+              has_yielded = true
+              next_callback.call
+            end
+            raise MissingYield, "Callback did not yield!" unless has_yielded
+          rescue StandardError => e
+            raise if e.is_a? MissingYield
+
+            Exekutor.on_fatal_error e, "[Executor] Callback error!"
+            next_callback.call
+          end
+        end
+      end
+
+      def invoke_callback(callback, args, extra_args)
+        if callback.arity.zero?
+          callback.call
+        else
+          callback.call(*(args + extra_args))
+        end
+      rescue StandardError => e
+        Exekutor.on_fatal_error e, "[Executor] Callback error!"
+      end
 
       def add_callback!(type, args, callback)
         @__callbacks ||= Concurrent::Hash.new
