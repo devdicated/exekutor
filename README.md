@@ -1,6 +1,8 @@
 [![Gem](https://img.shields.io/gem/v/exekutor?label=version)](https://rubygems.org/gems/exekutor)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/devdicated/exekutor/ruby.yml?label=tests)](https://github.com/devdicated/exekutor/actions/workflows/ruby.yml)
 
+![Logo](https://repository-images.githubusercontent.com/597201938/b7593aa1-b66a-4d82-88cc-ce752f6cba10)
+
 # _Say hello to_ Exekutor
 
 **Exekutor** is a PostgreSQL backed [active job](https://edgeguides.rubyonrails.org/active_job_basics.html) adapter,
