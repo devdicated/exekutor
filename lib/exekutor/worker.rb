@@ -88,6 +88,14 @@ module Exekutor
         @executables.each(&:start)
         @record.update(status: "r")
       end
+
+      at_exit do
+        if running?
+          Exekutor.say "Worker was not stopped at exit; killing worker."
+          kill
+        end
+      end
+
       true
     end
 
