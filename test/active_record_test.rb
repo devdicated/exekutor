@@ -9,7 +9,7 @@ class ActiveRecordTest < Minitest::Test
     worker = Exekutor::Info::Worker.find_by hostname: "test", pid: 12_345
 
     refute_nil worker
-    refute_nil worker.created_at
+    refute_nil worker.started_at
     refute_nil worker.last_heartbeat_at
     assert_equal "initializing", worker.status
   ensure

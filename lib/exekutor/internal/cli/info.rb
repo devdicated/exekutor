@@ -111,7 +111,7 @@ module Exekutor
             colorize_heartbeat(last_heartbeat_at)
           elsif !worker.running?
             "N/A"
-          elsif worker.created_at < 10.minutes.ago
+          elsif worker.started_at < 10.minutes.ago
             Rainbow("None").red
           else
             "None"

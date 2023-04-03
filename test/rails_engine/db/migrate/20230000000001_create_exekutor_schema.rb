@@ -8,7 +8,7 @@ class CreateExekutorSchema < ActiveRecord::Migration[6.0]
 
       t.jsonb :info, null: false
 
-      t.datetime :created_at, null: false, default: -> { "now()" }
+      t.datetime :started_at, null: false, default: -> { "now()" }
       t.datetime :last_heartbeat_at, null: false, default: -> { "now()" }
 
       t.column :status, :char, null: false, default: "i"
