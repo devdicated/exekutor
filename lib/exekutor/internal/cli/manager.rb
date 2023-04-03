@@ -27,6 +27,7 @@ module Exekutor
         # @option options [Integer] :poll_interval The interval in seconds for job polling
         # @return [Void]
         def start(options)
+          Process.setproctitle "Exekutor worker (Initializing…) [#{$PROGRAM_NAME}]"
           daemonize(restarting: options[:restart]) if options[:daemonize]
 
           load_application(options[:environment])
