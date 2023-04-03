@@ -41,13 +41,11 @@ module Exekutor
   end
 
   # Prints the error in the log and to STDERR (unless {Exekutor::Configuration#quiet?} is true)
-  # @param err [Exception] the error to print
+  # @param error [Exception] the error to print
   # @param message [String] the message to print above the error
   # @return [void]
-  def self.print_error(err, message = nil)
-    @backtrace_cleaner ||= ActiveSupport::BacktraceCleaner.new
-    error = "#{err.class} – #{err.message}\nat #{@backtrace_cleaner.clean(err.backtrace).join("\n   ")}"
-
+  def self.print_error(error, message = nil)
+    error = strferr(error)
     unless config.quiet?
       warn Rainbow(message).bright.red if message
       warn Rainbow(error).red
@@ -74,4 +72,20 @@ module Exekutor
                 ActiveSupport::TaggedLogging.new logger
               end
   end
+
+  # @return [ActiveSupport::BacktraceCleaner] A cleaner for error backtraces
+  def self.backtrace_cleaner
+    @backtrace_cleaner ||= ActiveSupport::BacktraceCleaner.new
+  end
+
+  # @return [String] The given error class, message, and cleaned backtrace as a string
+  def self.strferr(err)
+    raise ArgumentError, "err must not be nil" if err.nil?
+
+    "#{err.class} – #{err.message}\nat #{
+      err.backtrace ? backtrace_cleaner.clean(err.backtrace).join("\n   ") : "unknown location"
+    }"
+  end
+
+  private_class_method :backtrace_cleaner, :strferr
 end

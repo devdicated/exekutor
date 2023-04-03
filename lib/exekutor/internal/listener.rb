@@ -73,8 +73,14 @@ module Exekutor
       end
 
       # Starts the listener thread
-      def start_thread
-        @pool.post { run } if running?
+      def start_thread(delay: nil)
+        return unless running?
+
+        if delay
+          Concurrent::ScheduledTask.execute(delay, executor: @pool) { run }
+        else
+          @pool.post { run }
+        end
       end
 
       # Sets up the PG notifications and listens for new jobs
@@ -90,18 +96,23 @@ module Exekutor
           connection.exec("UNLISTEN *")
         end
       rescue StandardError => e
-        Exekutor.on_fatal_error e, "[Listener] Runtime error!"
-        self.state = :crashed if e.is_a? UnsupportedDatabase
-
-        if running?
-          consecutive_errors.increment
-          delay = restart_delay
-          logger.info format("Restarting in %0.1f seconds…", delay)
-          Concurrent::ScheduledTask.execute(delay, executor: @pool) { run }
-        end
+        on_thread_error(e)
       ensure
         @thread_running.make_false
         @listening.make_false
+      end
+
+      # Called when an error is raised in #run
+      def on_thread_error(error)
+        Exekutor.on_fatal_error error, "[Listener] Runtime error!"
+        self.state = :crashed if error.is_a? UnsupportedDatabase
+
+        return unless running?
+
+        consecutive_errors.increment
+        delay = restart_delay
+        logger.info format("Restarting in %0.1f seconds…", delay)
+        start_thread delay: delay
       end
 
       # Listens for jobs. Blocks until the listener is stopped
@@ -112,23 +123,26 @@ module Exekutor
             throw :shutdown unless running?
             next unless channel == JOB_ENQUEUED_CHANNEL
 
-            job_info = begin
-                         payload.split(";").to_h { |el| el.split(":") }
-                       rescue StandardError
-                         logger.error "Invalid notification payload: #{payload}"
-                         next
-                       end
-            unless JOB_INFO_KEYS.all? { |n| job_info[n].present? }
-              missing_keys = JOB_INFO_KEYS.select { |n| job_info[n].blank? }.join(", ")
-              logger.error "[Listener] Notification payload is missing #{missing_keys}"
-              next
-            end
-            next unless listening_to_queue? job_info["q"]
+            job_info = parse_job(payload)
+            next unless job_info && listening_to_queue?(job_info["q"])
 
-            scheduled_at = job_info["t"].to_f
-            @provider.update_earliest_scheduled_at(scheduled_at)
+            @provider.update_earliest_scheduled_at(job_info["t"].to_f)
           end
         end
+      end
+
+      def parse_job(payload)
+        job_info = payload.split(";").to_h { |el| el.split(":") }
+        if JOB_INFO_KEYS.all? { |n| job_info[n].present? }
+          job_info
+        else
+          missing_keys = JOB_INFO_KEYS.select { |n| job_info[n].blank? }.join(", ")
+          logger.error "[Listener] Notification payload is missing #{missing_keys}"
+          nil
+        end
+      rescue StandardError
+        logger.error "Invalid notification payload: #{payload}"
+        nil
       end
 
       # Gets a DB connection and removes it from the pool. Sets the application name if +set_db_connection_name+ is

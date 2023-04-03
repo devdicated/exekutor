@@ -117,8 +117,14 @@ module Exekutor
       private
 
       # Starts the provision thread
-      def start_thread
-        @pool.post { run } if running?
+      def start_thread(delay: nil)
+        return unless running?
+
+        if delay
+          Concurrent::ScheduledTask.execute(delay, executor: @pool) { run }
+        else
+          @pool.post { run }
+        end
       end
 
       # Does the provisioning of jobs to the executor. Blocks until the provider is stopped.
@@ -138,16 +144,21 @@ module Exekutor
           end
         end
       rescue StandardError => e
-        Exekutor.on_fatal_error e, "[Provider] Runtime error!"
-        consecutive_errors.increment
-        if running?
-          delay = restart_delay
-          logger.info format("Restarting in %0.1f seconds…", delay)
-          Concurrent::ScheduledTask.execute(delay, executor: @pool) { run }
-        end
+        on_thread_error(e)
       ensure
         BaseRecord.connection_pool.release_connection
         @thread_running.make_false
+      end
+
+      # Called when an error is raised in #run
+      def on_thread_error(error)
+        Exekutor.on_fatal_error error, "[Provider] Runtime error!"
+        return unless running?
+
+        consecutive_errors.increment
+        delay = restart_delay
+        logger.info format("Restarting in %0.1f seconds…", delay)
+        start_thread delay: delay
       end
 
       # Waits for any event to happen. An event could be:
@@ -174,21 +185,8 @@ module Exekutor
         return unless available_workers.positive?
 
         jobs = @reserver.reserve available_workers
-        unless jobs.nil?
-          begin
-            logger.debug "Reserved #{jobs.size} job(s)"
-            jobs.each { |job| @executor.post(job) }
-          rescue Exception # rubocop:disable Lint/RescueException
-            # Try to release all jobs before re-raising
-            begin
-              Exekutor::Job.where(id: jobs.pluck(:id), status: "e")
-                           .update_all(status: "p", worker_id: nil)
-            rescue StandardError
-              # ignored
-            end
-            raise
-          end
-        end
+        execute_jobs jobs unless jobs.nil?
+
         if jobs.nil? || jobs.size.to_i < available_workers
           # If we ran out of work, update the earliest scheduled at
           update_earliest_scheduled_at
@@ -199,6 +197,22 @@ module Exekutor
           # If the next job timestamp is still unknown, set it to now to indicate there's still work to do
           @next_job_scheduled_at.set Time.now.to_f
         end
+      end
+
+      # Posts the given jobs to the executor thread pool
+      # @param jobs [Array] the jobs to execute
+      def execute_jobs(jobs)
+        logger.debug "Reserved #{jobs.size} job(s)"
+        jobs.each { |job| @executor.post(job) }
+      rescue Exception # rubocop:disable Lint/RescueException
+        # Try to release all jobs before re-raising
+        begin
+          Exekutor::Job.where(id: jobs.pluck(:id), status: "e")
+                       .update_all(status: "p", worker_id: nil)
+        rescue StandardError
+          # ignored
+        end
+        raise
       end
 
       def perform_pending_job_updates

@@ -47,42 +47,53 @@ class LoggerTest < Minitest::Test
 
   def test_print_error
     ::Exekutor.config.stubs(:quiet?).returns(false)
-    ActiveSupport::BacktraceCleaner.any_instance.expects(:clean).returns(%w[line1 line2 line3])
+    ActiveSupport::BacktraceCleaner.any_instance.expects(:clean).with(%w[line1 line2 line3 line4])
+                                   .returns(%w[line1 line2 line3])
 
     Exekutor.expects(:warn).with(includes("log message"))
     Exekutor.expects(:warn).with(all_of(includes("StandardError"), includes("error message"),
-                                        includes("line1"), includes("line2"), includes("line3")))
+                                        includes("line1"), includes("line2"), includes("line3"),
+                                        Not(includes("line4"))))
 
     logger.expects(:error).with("log message")
     logger.expects(:error).with(all_of(includes("StandardError"), includes("error message"),
-                                       includes("line1"), includes("line2"), includes("line3")))
+                                       includes("line1"), includes("line2"), includes("line3"),
+                                       Not(includes("line4"))))
 
     ActiveSupport::Logger.expects(:logger_outputs_to?).with(logger, $stdout).returns(false)
 
-    Exekutor.print_error StandardError.new("error message"), "log message"
+    error = StandardError.new("error message")
+    error.set_backtrace(%w[line1 line2 line3 line4])
+    Exekutor.print_error error, "log message"
   end
 
   def test_print_error_with_stdout_logger
     ::Exekutor.config.stubs(:quiet?).returns(false)
-    ActiveSupport::BacktraceCleaner.any_instance.expects(:clean).returns(%w[line1 line2 line3])
+    ActiveSupport::BacktraceCleaner.any_instance.expects(:clean).with(%w[line1 line2 line3 line4])
+                                   .returns(%w[line1 line2 line3])
 
     Exekutor.expects(:warn).with(includes("log message"))
     Exekutor.expects(:warn).with(includes("error message"))
     ActiveSupport::Logger.expects(:logger_outputs_to?).with(logger, $stdout).returns(true)
     logger.expects(:error).never
 
-    Exekutor.print_error StandardError.new("error message"), "log message"
+    error = StandardError.new("error message")
+    error.set_backtrace(%w[line1 line2 line3 line4])
+    Exekutor.print_error error, "log message"
   end
 
   def test_print_error_quietly
     ::Exekutor.config.stubs(:quiet?).returns(true)
-    ActiveSupport::BacktraceCleaner.any_instance.expects(:clean).returns(%w[line1 line2 line3])
+    ActiveSupport::BacktraceCleaner.any_instance.expects(:clean).with(%w[line1 line2 line3 line4])
+                                   .returns(%w[line1 line2 line3])
 
     Exekutor.expects(:warn).never
     logger.expects(:error).with(includes("log message"))
-    logger.expects(:error).with(includes("error message"))
+    logger.expects(:error).with(all_of(includes("StandardError"), includes("error message")))
 
-    Exekutor.print_error StandardError.new("error message"), "log message"
+    error = StandardError.new("error message")
+    error.set_backtrace(%w[line1 line2 line3 line4])
+    Exekutor.print_error error, "log message"
   end
 
   def test_set_untagged_logger

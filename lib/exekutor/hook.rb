@@ -160,11 +160,15 @@ module Exekutor
       end
 
       def add_callback!(type, methods, callback)
-        raise Error, "No method or callback block supplied" if methods.blank? && callback.nil?
         raise Error, "Either a method or a callback block must be supplied" if methods.present? && callback.present?
 
-        methods&.each { |method| __callbacks[type] << [method, nil] }
-        __callbacks[type] << [nil, callback] if callback.present?
+        if methods.present?
+          methods.each { |method| __callbacks[type] << [method, nil] }
+        elsif callback.present?
+          __callbacks[type] << [nil, callback]
+        else
+          raise Error, "No method or callback block supplied"
+        end
       end
     end
   end

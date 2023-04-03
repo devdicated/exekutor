@@ -343,7 +343,7 @@ class ExecutorTest < Minitest::Test
     Exekutor.const_get(:Internal)::Hooks.expects(:on).with(:job_failure, job, instance_of(Exekutor::DiscardJob)).never
 
     executor.expects(:update_job).with(job, has_entries(status: "d", runtime: kind_of(Numeric))).returns(true)
-    Exekutor::JobError.expects(:create!)
+    Exekutor::JobError.expects(:create)
                       .with(has_entries(job_id: "test-job-to-discard", error: instance_of(Exekutor::DiscardJob)))
 
     executor.post job
@@ -358,7 +358,7 @@ class ExecutorTest < Minitest::Test
     Exekutor.const_get(:Internal)::Hooks.expects(:on).with(:job_failure, job, kind_of(StandardError))
     executor.expects(:log_error).with(kind_of(StandardError), "Job failed")
     executor.expects(:update_job).with(job, has_entries(status: "f", runtime: kind_of(Numeric))).returns(true)
-    Exekutor::JobError.expects(:create!)
+    Exekutor::JobError.expects(:create)
                       .with(has_entries(job_id: "test-job-that-failed", error: kind_of(StandardError)))
 
     executor.post job

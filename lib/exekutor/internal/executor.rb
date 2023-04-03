@@ -111,11 +111,7 @@ module Exekutor
       def _execute(job, start_time: Process.clock_gettime(Process::CLOCK_MONOTONIC))
         raise Exekutor::DiscardJob, "Maximum queue time expired" if queue_time_expired?(job)
 
-        if (timeout = job[:options] && job[:options]["execution_timeout"]).present?
-          Timeout.timeout Float(timeout), JobExecutionTimeout do
-            ActiveJob::Base.execute(job[:payload])
-          end
-        else
+        with_job_execution_timeout job.dig(:options, "execution_timeout") do
           ActiveJob::Base.execute(job[:payload])
         end
 
@@ -137,9 +133,7 @@ module Exekutor
       end
 
       def on_job_failed(job, error, runtime:)
-        discarded = [Exekutor::DiscardJob, JobExecutionTimeout].any? do |c|
-          error.is_a? c
-        end
+        discarded = [Exekutor::DiscardJob, JobExecutionTimeout].any? { |c| error.is_a? c }
         unless discarded
           Internal::Hooks.on(:job_failure, job, error)
           log_error error, "Job failed"
@@ -154,7 +148,7 @@ module Exekutor
 
           # Try to update the job and create a JobError record if update succeeds
         elsif update_job job, status: discarded ? "d" : "f", runtime: runtime
-          JobError.create!(job_id: job[:id], error: error)
+          JobError.create(job_id: job[:id], error: error)
         end
       end
 
@@ -197,6 +191,14 @@ module Exekutor
       def queue_time_expired?(job)
         job[:options] && job[:options]["start_execution_before"] &&
           job[:options]["start_execution_before"].to_f <= Time.now.to_f
+      end
+
+      def with_job_execution_timeout(timeout, &block)
+        if timeout
+          Timeout.timeout Float(timeout), JobExecutionTimeout, &block
+        else
+          yield
+        end
       end
 
       def lost_db_connection?(error)
