@@ -633,6 +633,13 @@ $ curl localhost:9000/ready
 [OK] ID: f1a2ee6a-cdac-459c-a4b8-de7c6a8bbae6; State: started
 ```
 
+The `…/threads` endpoint reports on the usage of the thread-pool and can be used for autoscaling.
+
+```shell
+$ curl localhost:9000/threads
+{"minimum":1,"maximum":10,"available":4,"usage_percent":60.0}
+```
+
 ## Caveats
 
 ### No run-once guarantee
