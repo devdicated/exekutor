@@ -60,6 +60,11 @@ class HookTest < Minitest::Test
     assert_raises(::Exekutor::Error) { hook_class.add_callback :invalid, -> {} }
   end
 
+  def test_add_callback_name_without_args
+    hook_class = Class.new { include ::Exekutor::Hook }
+    assert_raises(::Exekutor::Error) { hook_class.add_callback :on_fatal_error }
+  end
+
   def test_callback_leaks
     hook_class = Class.new { include ::Exekutor::Hook }
     hook_class.add_callback :before_startup, -> {}

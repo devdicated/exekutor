@@ -39,44 +39,15 @@ module Exekutor
       @config = config
       @record = create_record!
 
-      @reserver = Internal::Reserver.new @record.id, config[:queues]
-      @executor = Internal::Executor.new(**config.slice(:min_threads, :max_threads, :max_thread_idletime,
-                                                        :delete_completed_jobs, :delete_discarded_jobs,
-                                                        :delete_failed_jobs))
-
       provider_pool = create_provider_pool(config)
 
-      @provider = Internal::Provider.new reserver: @reserver, executor: @executor, pool: provider_pool,
-                                         **provider_options(config)
+      @executor = create_executor(config)
+      @provider = create_provider(config, @executor, provider_pool)
 
       @executables = [@executor, @provider]
-      if config.fetch(:enable_listener, true)
-        listener = Internal::Listener.new worker_id: @record.id, provider: @provider, pool: provider_pool,
-                                          **listener_options(config)
-        @executables << listener
-      end
-      if config[:status_server_port].to_i.positive?
-        server = Internal::StatusServer.new worker: self, pool: provider_pool, **status_server_options(config)
-        @executables << server
-      end
+      create_listener(provider_pool, config) if config.fetch(:enable_listener, true)
+      create_status_server(provider_pool, config) if config[:status_server_port].to_i.positive?
       @executables.freeze
-
-      @executor.after_execute(@record) do |_job, worker_info|
-        begin
-          worker_info.heartbeat!
-        rescue StandardError
-          # ignored
-        end
-        @provider.poll if @provider.running?
-      end
-      @provider.on_queue_empty(@record) do |worker_info|
-        begin
-          worker_info.heartbeat!
-        rescue StandardError
-          # ignored
-        end
-        @executor.prune_pool
-      end
     end
 
     # Starts the worker. Does nothing if the worker has already started.
@@ -87,13 +58,6 @@ module Exekutor
       Internal::Hooks.run :startup, self do
         @executables.each(&:start)
         @record.update(status: "r")
-      end
-
-      at_exit do
-        if running?
-          Exekutor.say "Worker was not stopped at exit; killing worker."
-          kill
-        end
       end
 
       true
@@ -152,7 +116,7 @@ module Exekutor
 
     # Reserves and executes jobs.
     def reserve_jobs
-      @provider.poll
+      @provider.poll if @provider&.running?
     end
 
     # The worker ID.
@@ -185,6 +149,44 @@ module Exekutor
       Concurrent::FixedThreadPool.new provider_threads, max_queue: provider_threads, name: "exekutor-provider"
     end
 
+    def create_executor(worker_options)
+      executor = Internal::Executor.new(**executor_options(worker_options))
+
+      executor.after_execute(@record) do |_job, worker_info|
+        begin
+          worker_info.heartbeat!
+        rescue StandardError
+          # ignored
+        end
+        reserve_jobs
+      end
+
+      executor
+    end
+
+    def executor_options(worker_options)
+      worker_options.slice(:min_threads, :max_threads, :max_thread_idletime,
+                           :delete_completed_jobs, :delete_discarded_jobs,
+                           :delete_failed_jobs)
+    end
+
+    def create_provider(worker_options, executor, thread_pool)
+      @reserver = Internal::Reserver.new @record.id, worker_options[:queues]
+      provider = Internal::Provider.new reserver: @reserver, executor: executor, pool: thread_pool,
+                                        **provider_options(worker_options)
+
+      provider.on_queue_empty(@record, executor) do |worker_info, thr_executor|
+        begin
+          worker_info.heartbeat!
+        rescue StandardError
+          # ignored
+        end
+        thr_executor.prune_pool
+      end
+
+      provider
+    end
+
     def provider_options(worker_options)
       worker_options.slice(:polling_interval, :polling_jitter).transform_keys do |key|
         case key
@@ -196,8 +198,19 @@ module Exekutor
       end
     end
 
+    def create_listener(provider_pool, config)
+      listener = Internal::Listener.new worker_id: @record.id, provider: @provider, pool: provider_pool,
+                                        **listener_options(config)
+      @executables << listener
+    end
+
     def listener_options(worker_options)
       worker_options.slice(:queues, :set_db_connection_name)
+    end
+
+    def create_status_server(provider_pool, config)
+      server = Internal::StatusServer.new worker: self, pool: provider_pool, **status_server_options(config)
+      @executables << server
     end
 
     def status_server_options(worker_options)

@@ -75,42 +75,23 @@ module Exekutor
       # @param scheduled_at [Time,Numeric] the time a job is scheduled at
       # @return [float,nil] the timestamp for the next job, or +nil+ if the timestamp is unknown or no jobs are pending
       def update_earliest_scheduled_at(scheduled_at = UNKNOWN)
-        overwrite_unknown = false
-        case scheduled_at
-        when UNKNOWN
-          # If we fetch the value from the DB, we can safely overwrite the UNKNOWN value
-          overwrite_unknown = true
-          scheduled_at = @reserver.earliest_scheduled_at&.to_f
-        when Time
-          scheduled_at = scheduled_at.to_f
-        when Numeric
-          #  All good
-        else
+        scheduled_at = scheduled_at.to_f if scheduled_at.is_a? Time
+        unless scheduled_at == UNKNOWN || scheduled_at.is_a?(Numeric)
           raise ArgumentError, "scheduled_at must be a Time or Numeric"
         end
 
-        updated = false
-        scheduled_at = @next_job_scheduled_at.update do |current|
-          if current == UNKNOWN
-            if overwrite_unknown || scheduled_at <= Time.now.to_f
-              updated = true
-              scheduled_at
-            else
-              current
-            end
-          elsif current.nil? || scheduled_at.nil? || current > scheduled_at
-            updated = true
-            scheduled_at
-          else
-            current
-          end
+        changed = false
+        earliest_scheduled_at = @next_job_scheduled_at.update do |current|
+          earliest = ScheduledAtComparer.determine_earliest(current, scheduled_at, @reserver)
+          changed = earliest != current
+          earliest
         end
 
-        if scheduled_at == UNKNOWN
+        if earliest_scheduled_at == UNKNOWN
           nil
         else
-          @event.set if updated && scheduled_at.present?
-          scheduled_at
+          @event.set if changed && earliest_scheduled_at.present?
+          earliest_scheduled_at
         end
       end
 
@@ -320,6 +301,27 @@ module Exekutor
                               (Kernel.rand - 0.5) * polling_interval_jitter
                             end
       end
+
+      # Abstraction to determine earliest out of 2 scheduled at timestamps
+      class ScheduledAtComparer
+        def self.determine_earliest(current_value, other_value, reserver)
+          if other_value == UNKNOWN
+            # Fetch the value from the db
+            reserver.earliest_scheduled_at&.to_f
+          elsif current_value == UNKNOWN
+            # We don't know the value yet, don't use the given value as earliest unless work is scheduled immediately
+            other_value > Time.now.to_f ? UNKNOWN : other_value
+          elsif current_value.nil? || current_value > other_value
+            # The given value is earlier than the known value
+            other_value
+          else
+            # No changes
+            current_value
+          end
+        end
+      end
+
+      private_constant :ScheduledAtComparer
     end
   end
 end

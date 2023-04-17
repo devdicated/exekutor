@@ -125,15 +125,17 @@ module Exekutor
       end
 
       def on_job_completed(job, runtime:)
-        if @options[:delete_completed_jobs]
+        next_status = "c"
+        if delete_job? next_status
           delete_job job
         else
-          update_job job, status: "c", runtime: runtime
+          update_job job, status: next_status, runtime: runtime
         end
       end
 
       def on_job_failed(job, error, runtime:)
         discarded = [Exekutor::DiscardJob, JobExecutionTimeout].any? { |c| error.is_a? c }
+        next_status = discarded ? "d" : "f"
         unless discarded
           Internal::Hooks.on(:job_failure, job, error)
           log_error error, "Job failed"
@@ -143,12 +145,25 @@ module Exekutor
           # Don't consider this as a failure, try again later.
           update_job job, status: "p", worker_id: nil
 
-        elsif @options[discarded ? :delete_discarded_jobs : :delete_failed_jobs]
+        elsif delete_job? next_status
           delete_job job
 
           # Try to update the job and create a JobError record if update succeeds
-        elsif update_job job, status: discarded ? "d" : "f", runtime: runtime
+        elsif update_job job, status: next_status, runtime: runtime
           JobError.create(job_id: job[:id], error: error)
+        end
+      end
+
+      def delete_job?(next_status)
+        case next_status
+        when "c"
+          @options[:delete_completed_jobs]
+        when "d"
+          @options[:delete_discarded_jobs]
+        when "f"
+          @options[:delete_failed_jobs]
+        else
+          false
         end
       end
 
