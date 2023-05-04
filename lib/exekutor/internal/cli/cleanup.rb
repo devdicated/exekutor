@@ -23,25 +23,13 @@ module Exekutor
           load_application options[:environment], print_message: !quiet?
 
           ActiveSupport.on_load(:active_record, yield: true) do
-            clear_application_loading_message unless quiet?
-            puts "(times are printed in the #{Time.zone.name} time zone)\n\n" if Time.zone.name != Time.new.zone
+            clear_application_loading_message
+            print_time_zone_warning if different_time_zone? && !quiet?
 
-            timeout = options[:timeout] || options[:worker_timeout] || 4
+            timeout = worker_cleanup_timeout(options)
             workers = cleaner.cleanup_workers timeout: timeout.hours
-            return if quiet?
 
-            puts Rainbow("Workers").bright.blue if options[:print_header]
-            if workers.present?
-              puts "Purged #{workers.size} worker#{"s" if workers.many?}"
-              if verbose?
-                table = Terminal::Table.new
-                table.headings = ["id", "Last heartbeat"]
-                workers.each { |w| table << [w.id.split("-").first << "…", w.last_heartbeat_at] }
-                puts table
-              end
-            else
-              puts "Nothing purged"
-            end
+            print_worker_cleanup_result(options, workers) unless quiet?
           end
         end
 
@@ -51,25 +39,55 @@ module Exekutor
           load_application options[:environment], print_message: !quiet?
 
           ActiveSupport.on_load(:active_record, yield: true) do
-            clear_application_loading_message unless quiet?
-            puts "(times are printed in the #{Time.zone.name} time zone)\n\n" if Time.zone.name != Time.new.zone
+            clear_application_loading_message
+            print_time_zone_warning if different_time_zone? && !quiet?
 
-            clear_application_loading_message unless quiet?
-            timeout = options[:timeout] || options[:job_timeout] || 48
-            status = (options[:job_status] if options[:job_status] && options[:job_status] != DEFAULT_STATUSES)
-            purged_count = cleaner.cleanup_jobs before: timeout.hours.ago, status: status
-            return if quiet?
+            timeout = job_cleanup_timeout(options)
+            purged_count = cleaner.cleanup_jobs before: timeout.hours.ago, status: job_cleanup_statuses(options)
 
-            puts Rainbow("Jobs").bright.blue if options[:print_header]
-            if purged_count.zero?
-              puts "Nothing purged"
-            else
-              puts "Purged #{purged_count} job#{"s" if purged_count > 1}"
-            end
+            print_job_cleanup_result(options, purged_count) unless quiet?
           end
         end
 
         private
+
+        def job_cleanup_statuses(options)
+          options[:job_status] if options[:job_status] && options[:job_status] != DEFAULT_STATUSES
+        end
+
+        def job_cleanup_timeout(options)
+          options[:timeout] || options[:job_timeout] || 48
+        end
+
+        def print_job_cleanup_result(options, purged_count)
+          puts Rainbow("Jobs").bright.blue if options[:print_header]
+          if purged_count.zero?
+            puts "Nothing purged"
+          else
+            puts "Purged #{purged_count} job#{"s" if purged_count > 1}"
+          end
+        end
+
+        def worker_cleanup_timeout(options)
+          options[:timeout] || options[:worker_timeout] || 4
+        end
+
+        def print_worker_cleanup_result(options, workers)
+          puts Rainbow("Workers").bright.blue if options[:print_header]
+          if workers.present?
+            puts "Purged #{workers.size} worker#{"s" if workers.many?}"
+            print_worker_info(workers) if verbose?
+          else
+            puts "Nothing purged"
+          end
+        end
+
+        def print_worker_info(workers)
+          table = Terminal::Table.new
+          table.headings = ["id", "Last heartbeat"]
+          workers.each { |w| table << [w.id.split("-").first << "…", w.last_heartbeat_at] }
+          puts table
+        end
 
         # @return [Boolean] Whether quiet mode is enabled. Overrides verbose mode.
         def quiet?

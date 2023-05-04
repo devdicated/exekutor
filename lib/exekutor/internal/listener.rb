@@ -15,7 +15,7 @@ module Exekutor
       # The PG notification channel for a worker. Must be formatted with the worker ID.
       PROVIDER_CHANNEL = "exekutor::worker::%s"
 
-      JOB_INFO_KEYS = %w[id q t].freeze
+      # rubocop:disable Metrics/ParameterLists
 
       # Creates a new listener
       # @param worker_id [String] the ID of the worker
@@ -39,6 +39,7 @@ module Exekutor
         @thread_running = Concurrent::AtomicBoolean.new false
         @listening = Concurrent::AtomicBoolean.new false
       end
+      # rubocop:enable Metrics/ParameterLists
 
       # Starts the listener
       def start
@@ -123,26 +124,12 @@ module Exekutor
             throw :shutdown unless running?
             next unless channel == JOB_ENQUEUED_CHANNEL
 
-            job_info = parse_job(payload)
+            job_info = JobParser.parse(payload)
             next unless job_info && listening_to_queue?(job_info["q"])
 
             @provider.update_earliest_scheduled_at(job_info["t"].to_f)
           end
         end
-      end
-
-      def parse_job(payload)
-        job_info = payload.split(";").to_h { |el| el.split(":") }
-        if JOB_INFO_KEYS.all? { |n| job_info[n].present? }
-          job_info
-        else
-          missing_keys = JOB_INFO_KEYS.select { |n| job_info[n].blank? }.join(", ")
-          logger.error "[Listener] Notification payload is missing #{missing_keys}"
-          nil
-        end
-      rescue StandardError
-        logger.error "Invalid notification payload: #{payload}"
-        nil
       end
 
       # Gets a DB connection and removes it from the pool. Sets the application name if +set_db_connection_name+ is
@@ -181,6 +168,25 @@ module Exekutor
       # For testing purposes
       def listening?
         @listening.true?
+      end
+
+      # Parses a NOTIFY payload to a job
+      class JobParser
+        JOB_INFO_KEYS = %w[id q t].freeze
+
+        def self.parse(payload)
+          job_info = payload.split(";").to_h { |el| el.split(":") }
+          if JOB_INFO_KEYS.all? { |n| job_info[n].present? }
+            job_info
+          else
+            missing_keys = JOB_INFO_KEYS.select { |n| job_info[n].blank? }.join(", ")
+            logger.error "[Listener] Notification payload is missing #{missing_keys}"
+            nil
+          end
+        rescue StandardError
+          logger.error "Invalid notification payload: #{payload}"
+          nil
+        end
       end
 
       # Raised when an error occurs in the listener.

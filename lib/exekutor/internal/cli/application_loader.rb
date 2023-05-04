@@ -31,6 +31,16 @@ module Exekutor
           printf "\r#{" " * LOADING_MESSAGE.length}\r"
           @loading_message_printed = false
         end
+
+        # @return Whether the system time zone differs from the app time zone
+        def different_time_zone?
+          Time.zone.name != Time.new.zone
+        end
+
+        # Prints a message to STDOUT indicating in which time zone times are printed
+        def print_time_zone_warning
+          puts "(times are printed in the #{Time.zone.name} time zone)\n\n"
+        end
       end
     end
   end

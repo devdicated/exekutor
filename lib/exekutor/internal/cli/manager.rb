@@ -26,97 +26,19 @@ module Exekutor
         # @option options [String] :threads The number of threads to use for job execution
         # @option options [Integer] :poll_interval The interval in seconds for job polling
         # @return [Void]
+
         def start(options)
           Process.setproctitle "Exekutor worker (Initializing…) [#{$PROGRAM_NAME}]"
           daemonize(restarting: options[:restart]) if options[:daemonize]
 
           load_application(options[:environment])
 
-          config_files = if options[:configfile].is_a? DefaultConfigFileValue
-                           options[:configfile].to_a(@global_options[:identifier])
-                         else
-                           options[:configfile]&.map { |path| File.expand_path(path, Rails.root) }
-                         end
-
-          worker_options = DEFAULT_CONFIGURATION.dup
-
-          config_files&.each do |path|
-            puts "Loading config file: #{path}" if verbose?
-            config = begin
-                       YAML.safe_load(File.read(path), symbolize_names: true)
-                     rescue StandardError => e
-                       raise Error, "Cannot read config file: #{path} (#{e})"
-                     end
-            unless config.keys == [:exekutor]
-              raise Error, "Config should have an `exekutor` root node: #{path} (Found: #{config.keys.join(", ")})"
-            end
-
-            # Remove worker specific options before calling Exekutor.config.set
-            worker_options.merge! config[:exekutor].extract!(:queue, :status_server_port)
-
-            begin
-              Exekutor.config.set(**config[:exekutor])
-            rescue StandardError => e
-              raise Error, "Cannot load config file: #{path} (#{e})"
-            end
-          end
-
-          worker_options.merge! Exekutor.config.worker_options
-          worker_options.merge! @global_options.slice(:identifier)
-          if verbose?
-            worker_options[:verbose] = true
-          elsif quiet?
-            worker_options[:quiet] = true
-          end
-          if options[:threads] && !options[:threads].is_a?(DefaultOptionValue)
-            min, max = if options[:threads].is_a?(Integer)
-                         [options[:threads], options[:threads]]
-                       else
-                         options[:threads].to_s.split(":")
-                       end
-            if max.nil?
-              options[:min_threads] = options[:max_threads] = Integer(min)
-            else
-              options[:min_threads] = Integer(min)
-              options[:max_threads] = Integer(max)
-            end
-          end
-          worker_options.merge!(
-            options.slice(:queue, :min_threads, :max_threads, :poll_interval)
-                   .reject { |_, value| value.is_a? DefaultOptionValue }
-                   .transform_keys(poll_interval: :polling_interval)
-          )
-
-          worker_options[:queue] = nil if worker_options[:queue] == ["*"]
-
           # Specify `yield: true` to prevent running in the context of the loaded module
           ActiveSupport.on_load(:exekutor, yield: true) do
+            worker_options = worker_options(options[:configfile], cli_worker_overrides(options))
+
             ActiveSupport.on_load(:active_record, yield: true) do
-              worker = Worker.new(worker_options)
-              %w[INT TERM QUIT].each do |signal|
-                ::Kernel.trap(signal) { ::Thread.new { worker.stop } }
-              end
-
-              Process.setproctitle "Exekutor worker #{worker.id} [#{Rails.root}]"
-              if worker_options[:set_db_connection_name]
-                Internal::BaseRecord.connection.class.set_callback(:checkout, :after) do
-                  Internal::DatabaseConnection.set_application_name raw_connection, worker.id
-                end
-                Internal::BaseRecord.connection_pool.connections.each do |conn|
-                  Internal::DatabaseConnection.set_application_name conn.raw_connection, worker.id
-                end
-              end
-
-              ActiveSupport.on_load(:active_job, yield: true) do
-                puts "Worker #{worker.id} started (Use `#{Rainbow("ctrl + c").magenta}` to stop)" unless quiet?
-                puts worker_options.pretty_inspect.to_s if verbose?
-                begin
-                  worker.start
-                  worker.join
-                ensure
-                  worker.stop if worker.running?
-                end
-              end
+              start_and_join_worker(worker_options, options[:daemonize])
             end
           end
         end
@@ -138,20 +60,7 @@ module Exekutor
           end
 
           Process.kill("INT", pid)
-          sleep(0.3)
-          wait_until = if options[:shutdown_timeout].nil? || options[:shutdown_timeout] == DEFAULT_FOREVER
-                         nil
-                       else
-                         Time.now.to_f + options[:shutdown_timeout]
-                       end
-          while daemon.status?(:running, :not_owned)
-            puts "Waiting for worker to finish…" unless quiet?
-            if wait_until && wait_until > Time.now.to_f
-              Process.kill("TERM", pid)
-              break
-            end
-            sleep 0.1
-          end
+          wait_for_process_end(daemon, pid, shutdown_timeout(options))
           puts "Worker (PID: #{pid}) stopped." unless quiet?
         end
 
@@ -161,6 +70,135 @@ module Exekutor
         end
 
         private
+
+        def worker_options(config_file, cli_overrides)
+          worker_options = DEFAULT_CONFIGURATION.dup
+
+          load_config_files(config_file, worker_options)
+
+          worker_options.merge! Exekutor.config.worker_options
+          worker_options.merge! @global_options.slice(:identifier)
+          worker_options.merge! cli_overrides
+
+          if quiet?
+            worker_options[:quiet] = true
+          elsif verbose?
+            worker_options[:verbose] = true
+          end
+
+          worker_options[:queue] = nil if Array.wrap(worker_options[:queue]) == ["*"]
+          worker_options
+        end
+
+        def cli_worker_overrides(cli_options)
+          worker_options = cli_options.slice(:queue, :poll_interval)
+                                      .reject { |_, value| value.is_a? DefaultOptionValue }
+                                      .transform_keys(poll_interval: :polling_interval)
+
+          min_threads, max_threads = parse_thread_limitations(cli_options[:threads])
+          if min_threads
+            worker_options[:min_threads] = min_threads
+            worker_options[:max_threads] = max_threads || min_threads
+          end
+
+          worker_options
+        end
+
+        def parse_thread_limitations(threads)
+          return if threads.blank? || threads.is_a?(DefaultOptionValue)
+
+          if threads.is_a?(Integer)
+            [threads, threads]
+          else
+            threads.to_s.split(":").map { |s| Integer(s) }
+          end
+        end
+
+        def load_config_files(config_files, worker_options)
+          config_files = if config_files.is_a? DefaultConfigFileValue
+                           config_files.to_a(@global_options[:identifier])
+                         else
+                           config_files&.map { |path| File.expand_path(path, Rails.root) }
+                         end
+
+          config_files&.each { |path| load_config_file(path, worker_options) }
+        end
+
+        def load_config_file(path, worker_options)
+          puts "Loading config file: #{path}" if verbose?
+          config = begin
+                     YAML.safe_load(File.read(path), symbolize_names: true)
+                   rescue StandardError => e
+                     raise Error, "Cannot read config file: #{path} (#{e})"
+                   end
+          unless config.keys == [:exekutor]
+            raise Error, "Config should have an `exekutor` root node: #{path} (Found: #{config.keys.join(", ")})"
+          end
+
+          # Remove worker specific options before calling Exekutor.config.set
+          worker_options.merge! config[:exekutor].extract!(:queue, :status_server_port)
+
+          begin
+            Exekutor.config.set(**config[:exekutor])
+          rescue StandardError => e
+            raise Error, "Cannot load config file: #{path} (#{e})"
+          end
+        end
+
+        def start_and_join_worker(worker_options, is_daemonized)
+          worker = Worker.new(worker_options)
+          %w[INT TERM QUIT].each do |signal|
+            ::Kernel.trap(signal) { ::Thread.new { worker.stop } }
+          end
+
+          Process.setproctitle "Exekutor worker #{worker.id} [#{Rails.root}]"
+          set_db_connection_name(worker.id) if worker_options[:set_db_connection_name]
+
+          ActiveSupport.on_load(:active_job, yield: true) do
+            worker.start
+            print_startup_message(worker, worker_options) unless quiet? || is_daemonized
+            worker.join
+          ensure
+            worker.stop if worker.running?
+          end
+        end
+
+        def print_startup_message(worker, worker_options)
+          puts "Worker #{worker.id} started (Use `#{Rainbow("ctrl + c").magenta}` to stop)"
+          puts worker_options.pretty_inspect.to_s if verbose?
+        end
+
+        # rubocop:disable Naming/AccessorMethodName
+        def set_db_connection_name(worker_id)
+          # rubocop:enable Naming/AccessorMethodName
+          Internal::BaseRecord.connection.class.set_callback(:checkout, :after) do
+            Internal::DatabaseConnection.set_application_name raw_connection, worker_id
+          end
+          Internal::BaseRecord.connection_pool.connections.each do |conn|
+            Internal::DatabaseConnection.set_application_name conn.raw_connection, worker_id
+          end
+        end
+
+        def wait_for_process_end(daemon, pid, shutdown_timeout)
+          wait_until = (Time.now.to_f + shutdown_timeout if shutdown_timeout)
+          sleep 0.1
+          while daemon.status?(:running, :not_owned)
+            if wait_until && wait_until > Time.now.to_f
+              puts "Sending TERM signal" unless quiet?
+              Process.kill("TERM", pid) if pid
+              break
+            end
+            sleep 0.1
+          end
+        end
+
+        def shutdown_timeout(options)
+          if options[:shutdown_timeout].nil? || options[:shutdown_timeout] == DEFAULT_FOREVER
+            nil
+          else
+            options[:shutdown_timeout]
+          end
+        end
 
         # @return [Boolean] Whether quiet mode is enabled. Overrides verbose mode.
         def quiet?
@@ -189,28 +227,31 @@ module Exekutor
           end
         end
 
-        # Daemonizes the current process. Do this before loading your application to prevent deadlocks.
+        # Daemonizes the current process.
         # @return [Void]
         def daemonize(restarting: false)
           daemonizer = Daemon.new(pidfile: pidfile)
           daemonizer.validate!
-          unless quiet?
-            if restarting
-              puts "Restarting worker as a daemon…"
-            else
-              stop_options = if @global_options[:pidfile] && @global_options[:pidfile] != DEFAULT_PIDFILE
-                               "--pid #{pidfile} "
-                             elsif identifier
-                               "--id #{identifier} "
-                             end
+          print_daemonize_message(restarting) unless quiet?
 
-              puts "Running worker as a daemon… (Use `#{Rainbow("exekutor #{stop_options}stop").magenta}` to stop)"
-            end
-          end
           daemonizer.daemonize
         rescue Daemon::Error => e
           puts Rainbow(e.message).red
           raise GLI::CustomExit.new(nil, 1)
+        end
+
+        def print_daemonize_message(restarting)
+          if restarting
+            puts "Restarting worker as a daemon…"
+          else
+            stop_options = if @global_options[:pidfile] && @global_options[:pidfile] != DEFAULT_PIDFILE
+                             "--pid #{pidfile} "
+                           elsif identifier
+                             "--id #{identifier} "
+                           end
+
+            puts "Running worker as a daemon… (Use `#{Rainbow("exekutor #{stop_options}stop").magenta}` to stop)"
+          end
         end
 
         # The default value for the pid file

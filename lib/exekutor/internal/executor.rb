@@ -15,6 +15,15 @@ module Exekutor
       define_callbacks :after_execute, freeze: true
       attr_reader :pending_job_updates
 
+      # rubocop:disable Metrics/ParameterLists
+
+      # Create a new executor
+      # @param min_threads [Integer] the minimum number of threads that should be active
+      # @param max_threads [Integer] the maximum number of threads that may be active
+      # @param max_thread_idletime [Integer] the amount of seconds a thread may be idle before being reclaimed
+      # @param delete_completed_jobs [Boolean] whether to delete jobs that complete successfully
+      # @param delete_discarded_jobs [Boolean] whether to delete jobs that are discarded
+      # @param delete_failed_jobs [Boolean] whether to delete jobs that fail
       def initialize(min_threads: 1, max_threads: default_max_threads, max_thread_idletime: 180,
                      delete_completed_jobs: false, delete_discarded_jobs: false, delete_failed_jobs: false)
         super()
@@ -30,6 +39,8 @@ module Exekutor
           delete_failed_jobs: delete_failed_jobs
         }.freeze
       end
+
+      # rubocop:enable Metrics/ParameterLists
 
       # Starts the executor
       def start
