@@ -57,9 +57,9 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rubocop-minitest", "~> 0.29"
   spec.add_development_dependency "rubocop-performance", "~> 1.16"
   spec.add_development_dependency "rubocop-rails", "~> 2.18"
-
   spec.add_development_dependency "simplecov", "~> 0.22"
   spec.add_development_dependency "timecop", "~> 0.9"
+  spec.add_development_dependency "webrick", "~> 1.6"
   spec.add_development_dependency "yard", "~> 0.9"
   spec.add_development_dependency "yard-activesupport-concern", "~> 0.0"
 end
