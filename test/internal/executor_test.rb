@@ -247,6 +247,10 @@ class ExecutorTest < Minitest::Test
     assert executor.send(:delete_job, job)
   end
 
+  def test_delete_job_for_nonfinal_state
+    refute executor.send(:delete_job?, "p")
+  end
+
   def test_delete_job_without_connection
     Exekutor::Job.connection.stubs(:active?).returns(false)
     job = { id: "test-job-to-destroy", payload: TestJobs::Simple.new.serialize, options: {},
