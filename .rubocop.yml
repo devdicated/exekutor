@@ -8,6 +8,9 @@ AllCops:
   TargetRailsVersion: 6.0
   NewCops: enable
 
+Gemspec/DevelopmentDependencies:
+  EnforcedStyle: gemspec
+
 # Does not play nice with Rubymine's alignment
 Layout/BeginEndAlignment:
   EnforcedStyleAlignWith: begin
