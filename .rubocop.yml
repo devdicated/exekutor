@@ -23,6 +23,8 @@ Metrics/AbcSize:
     - test/**/*
 
 Metrics/ClassLength:
+  Max: 200
+  CountAsOne: ['array', 'heredoc', 'method_call']
   Exclude:
     - test/**/*
 
