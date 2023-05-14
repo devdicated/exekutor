@@ -4,7 +4,6 @@ require_relative "application_loader"
 require_relative "default_option_value"
 require_relative "daemon"
 
-# rubocop:disable Style/FormatStringToken
 module Exekutor
   # @private
   module Internal
@@ -26,7 +25,6 @@ module Exekutor
         # @option options [String] :threads The number of threads to use for job execution
         # @option options [Integer] :poll_interval The interval in seconds for job polling
         # @return [Void]
-
         def start(options)
           Process.setproctitle "Exekutor worker (Initializing…) [#{$PROGRAM_NAME}]"
           daemonize(restarting: options[:restart]) if options[:daemonize]
@@ -43,6 +41,8 @@ module Exekutor
           end
         end
 
+        # Stops a daemonized worker
+        # @return [Void]
         def stop(options)
           daemon = Daemon.new(pidfile: pidfile)
           pid = daemon.pid
@@ -64,6 +64,8 @@ module Exekutor
           puts "Worker (PID: #{pid}) stopped." unless quiet?
         end
 
+        # Restarts a daemonized worker
+        # @return [Void]
         def restart(stop_options, start_options)
           stop stop_options.merge(restart: true)
           start start_options.merge(restart: true, daemonize: true)
@@ -215,6 +217,8 @@ module Exekutor
           @global_options[:identifier]
         end
 
+        # rubocop:disable Style/FormatStringToken
+
         # @return [String] The path to the pidfile
         def pidfile
           pidfile = @global_options[:pidfile] || DEFAULT_PIDFILE
@@ -260,6 +264,8 @@ module Exekutor
             super("tmp/pids/exekutor[.%{identifier}].pid")
           end
 
+          # @param identifier [nil,String] the worker identifier
+          # @return [String] the path to the default pidfile of the worker with the specified identifier
           def for_identifier(identifier)
             if identifier.nil? || identifier.empty? # rubocop:disable Rails/Blank – Rails is not loaded here
               "tmp/pids/exekutor.pid"
@@ -277,6 +283,8 @@ module Exekutor
             DESC
           end
 
+          # @param identifier [nil,String] the worker identifier
+          # @return [Array<String>] the paths to the configfiles to load
           def to_a(identifier = nil)
             files = []
             %w[config/exekutor.yml config/exekutor.yaml].each do |path|
@@ -299,6 +307,8 @@ module Exekutor
           end
         end
 
+        # rubocop:enable Style/FormatStringToken
+
         DEFAULT_PIDFILE = DefaultPidFileValue.new.freeze
         DEFAULT_CONFIG_FILES = DefaultConfigFileValue.new.freeze
 
@@ -315,4 +325,3 @@ module Exekutor
     end
   end
 end
-# rubocop:enable Style/FormatStringToken

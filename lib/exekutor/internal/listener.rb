@@ -196,7 +196,7 @@ module Exekutor
       # Raised when an error occurs in the listener.
       class Error < Exekutor::Error; end
 
-      # Raised when the database connection is not an instance of PG::Connection.
+      # Raised when the database connection is not an instance of +PG::Connection+.
       class UnsupportedDatabase < Exekutor::Error; end
     end
   end

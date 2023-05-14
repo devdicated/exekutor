@@ -109,7 +109,7 @@ module Exekutor
 
     # The internal job used for {Exekutor::Asynchronous}. Only works for methods that are marked as asynchronous to
     # prevent remote code execution. Include the {Exekutor::Asynchronous} and call
-    # {Exekutor::Asynchronous#perform_asynchronously} to mark a method as asynchronous.
+    # +perform_asynchronously+ to mark a method as asynchronous.
     class AsyncMethodJob < ActiveJob::Base # rubocop:disable Rails/ApplicationJob
       # Calls the original, synchronous method
       # @!visibility private

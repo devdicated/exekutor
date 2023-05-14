@@ -9,6 +9,7 @@ module Exekutor
       # Possible states
       STATES = %i[pending started stopped crashed killed].freeze
 
+      # Initializes the internal variables
       def initialize
         @state = Concurrent::AtomicReference.new(:pending)
         @consecutive_errors = Concurrent::AtomicFixnum.new(0)
@@ -25,11 +26,12 @@ module Exekutor
         @state.get
       end
 
-      # Whether the state equals +:started+
+      # @return [Boolean] whether the state equals +:started+
       def running?
         @state.get == :started
       end
 
+      # @return [Concurrent::AtomicFixnum] the number of consecutive errors that have occurred
       def consecutive_errors
         @consecutive_errors
       end

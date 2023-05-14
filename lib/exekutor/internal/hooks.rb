@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# The Exekutor namespace
 module Exekutor
   module Internal
     # The internal implementation of the Exekutor hooks

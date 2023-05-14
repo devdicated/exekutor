@@ -2,6 +2,7 @@
 
 require_relative "internal/configuration_builder"
 
+# The Exekutor namespace
 module Exekutor
   # Configuration for the Exekutor library
   class Configuration
@@ -88,7 +89,7 @@ module Exekutor
       end
 
       serializer = const_get :json_serializer
-      serializer = SerializerValidator.try_convert! serializer unless SerializerValidator.valid? serializer
+      serializer = SerializerValidator.convert! serializer unless SerializerValidator.valid? serializer
       @json_serializer_instance = [raw_value, serializer]
       serializer
     end
@@ -348,10 +349,11 @@ module Exekutor
         serializer.respond_to?(:dump) && serializer.respond_to?(:load)
       end
 
+      # Tries to convert the specified value to a serializer, raises an error if the conversion fails.
       # @param serializer [Any] the value to convert
       # @return [#dump&#load]
       # @raise [Error] if the serializer has not implemented dump & load
-      def self.try_convert!(serializer)
+      def self.convert!(serializer)
         return serializer if SerializerValidator.valid? serializer
 
         if serializer.respond_to?(:call)

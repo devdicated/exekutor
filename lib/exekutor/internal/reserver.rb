@@ -19,7 +19,7 @@ module Exekutor
 
       # Reserves pending jobs
       # @param limit [Integer] the number of jobs to reserve
-      # @return [Array<Job>,nil] the reserved jobs, or nil if no jobs were reserved
+      # @return [Array<Hash>,nil] the reserved jobs, or nil if no jobs were reserved
       def reserve(limit)
         return unless limit.positive?
 
@@ -37,6 +37,9 @@ module Exekutor
         parse_jobs results
       end
 
+      # Gets the jobs that are assigned to this worker and have an id that is not included in +active_job_ids+
+      # @param active_job_ids [Array<String>] The ids of the jobs that should be excluded
+      # @return [Array<Hash>] the jobs
       def get_abandoned_jobs(active_job_ids)
         jobs = Exekutor::Job.executing.where(worker_id: @worker_id)
         jobs = jobs.where.not(id: active_job_ids) if active_job_ids.present?

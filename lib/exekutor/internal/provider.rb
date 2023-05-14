@@ -73,7 +73,7 @@ module Exekutor
       # argument is given. Updates the timestamp for the earliest job is a timestamp is given and that timestamp is
       # before the known timestamp. Does nothing if a timestamp is given and the earliest job timestamp is not known.
       # @param scheduled_at [Time,Numeric] the time a job is scheduled at
-      # @return [float,nil] the timestamp for the next job, or +nil+ if the timestamp is unknown or no jobs are pending
+      # @return [Float,nil] the timestamp for the next job, or +nil+ if the timestamp is unknown or no jobs are pending
       def update_earliest_scheduled_at(scheduled_at = UNKNOWN)
         scheduled_at = scheduled_at.to_f if scheduled_at.is_a? Time
         unless scheduled_at == UNKNOWN || scheduled_at.is_a?(Numeric)

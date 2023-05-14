@@ -124,10 +124,17 @@ module Exekutor
       @record.id
     end
 
+    # @return [Time,nil] The timestamp of the last heartbeat. The timestamp is truncated to whole minutes.
     def last_heartbeat
       @record.last_heartbeat_at
     end
 
+    # Returns the thread usage for this worker. The resulting hash will contain the following key-value pairs:
+    # - +:minimum+, (Integer) the minimum number of threads that should be active;
+    # - +:maximum+, (Integer) the maximum number of threads may should be active;
+    # - +:available+, (Integer) the number of threads that are available to execute new jobs;
+    # - +:usage_percent+, (Float, 0-100) the percentage of workers that are currently busy executing jobs.
+    # @return [Hash] the thread usage
     def thread_stats
       available = @executor.available_threads
       usage_percent = (((100 - (available * 100.0 / @executor.maximum_threads))).round(2) if @executor.running?)

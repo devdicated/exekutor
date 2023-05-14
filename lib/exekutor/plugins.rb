@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# The Exekutor namespace
 module Exekutor
   module Plugins
     # Raised when a plugin cannot be loaded

@@ -2,6 +2,7 @@
 
 require "rainbow"
 
+# The Exekutor namespace
 module Exekutor
   # @private
   module Internal

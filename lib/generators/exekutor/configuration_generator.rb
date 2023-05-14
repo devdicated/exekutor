@@ -9,6 +9,7 @@ module Exekutor
 
     class_option :identifier, type: :string, aliases: %i[--id], desc: "The worker identifier"
 
+    # Creates the configuration file at +config/exekutor.yml+. Uses the current worker configuration as the base.
     def create_configuration_file
       config = { queues: %w[queues to watch] }.merge(Exekutor.config.worker_options)
       config[:status_port] = 8765

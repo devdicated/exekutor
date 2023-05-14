@@ -2,7 +2,21 @@
 
 module Exekutor
   module Internal
-    # Serves a simple health check app
+    # Serves a simple health check app. The app provides 4 endpoints:
+    # - +/+, which lists the other endpoints;
+    # - +/ready+, which indicates whether the worker is ready to start work;
+    # - +/live+, which indicates whether the worker is ready and whether the worker is still alive;
+    # - +/threads+, which indicated the thread usage of the worker.
+    #
+    # Please note that this server uses +webrick+ by default, which is no longer a default gem from ruby 3.0 onwards.
+    #
+    # === Example requests
+    #    $ curl localhost:9000/ready
+    #    [OK] ID: f1a2ee6a-cdac-459c-a4b8-de7c6a8bbae6; State: started
+    #    $ curl localhost:9000/live
+    #    [OK] ID: f1a2ee6a-cdac-459c-a4b8-de7c6a8bbae6; State: started; Heartbeat: 2023-04-05T16:27:00Z
+    #    $ curl localhost:9000/threads
+    #    {"minimum":1,"maximum":10,"available":4,"usage_percent":60.0}
     class StatusServer
       include Internal::Logger
       include Internal::Executable
@@ -20,16 +34,19 @@ module Exekutor
         @server = Concurrent::AtomicReference.new
       end
 
+      # Starts the web server
       def start
         return false unless compare_and_set_state :pending, :started
 
         start_thread
       end
 
+      # @return [Boolean] whether the web server is active
       def running?
         super && @thread_running.value
       end
 
+      # Stops the web server
       def stop
         self.state = :stopped
         return unless @thread_running.value
@@ -46,6 +63,7 @@ module Exekutor
 
       protected
 
+      # Runs the web server, should be called from a separate thread
       def run(worker, port)
         return unless state == :started && @thread_running.make_true
 

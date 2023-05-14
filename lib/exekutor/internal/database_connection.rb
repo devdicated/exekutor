@@ -11,10 +11,14 @@ module Exekutor
       end
 
       # The connection name for the specified worker id and process
+      # @param id [String] the id of the worker
+      # @param process [nil,String] the process name
       def self.application_name(id, process = nil)
         "Exekutor[id: #{id}]#{" #{process}" if process}"
       end
 
+      # Reconnects the database if it is not active
+      # @param connection [ActiveRecord::ConnectionAdapters::AbstractAdapter] the connection adapter to use
       def self.ensure_active!(connection = BaseRecord.connection)
         connection.reconnect! unless connection.active?
       end

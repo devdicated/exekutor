@@ -32,7 +32,7 @@ module Exekutor
     included do
       class_attribute :__callbacks, default: Hash.new { |h, k| h[k] = [] }
 
-      private_class_method :add_callback!
+      private_class_method :_add_callback
     end
 
     # Gets the registered callbacks
@@ -141,7 +141,7 @@ module Exekutor
       CALLBACK_NAMES.each do |name|
         module_eval <<-RUBY, __FILE__, __LINE__ + 1
           def #{name}(*methods, &callback)            # def callback_name(*methods, &callback
-            add_callback! :#{name}, methods, callback #   add_callback! :callback_name, methods, callback
+            _add_callback :#{name}, methods, callback #   _add_callback :callback_name, methods, callback
           end                                         # end
         RUBY
       end
@@ -155,11 +155,12 @@ module Exekutor
           raise Error, "Invalid callback type: #{type} (Expected one of: #{CALLBACK_NAMES.map(&:inspect).join(", ")}"
         end
 
-        add_callback! type, methods, callback
+        _add_callback type, methods, callback
         true
       end
 
-      def add_callback!(type, methods, callback)
+      # @!visibility private
+      def _add_callback(type, methods, callback)
         raise Error, "Either a method or a callback block must be supplied" if methods.present? && callback.present?
 
         if methods.present?
