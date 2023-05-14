@@ -47,7 +47,6 @@ jobs:
 
     - name: Run rubocop
       run: bundle exec rubocop
-      continue-on-error: true
 
     - name: Run tests
       run: bundle exec rake test
