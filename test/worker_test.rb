@@ -177,8 +177,10 @@ class WorkerTest < Minitest::Test
     worker.record.expects(:heartbeat!).at_least_once
     worker.instance_variable_get(:@executor).expects(:prune_pool).at_least_once
     worker.instance_variable_get(:@reserver).expects(:reserve).at_least_once.returns(nil)
+    hook_called = false
+    worker.instance_variable_get(:@provider).on_queue_empty { hook_called = true }
     worker.reserve_jobs
-    sleep(0.05)
+    wait_until { hook_called }
   end
 
   private
