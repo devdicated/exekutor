@@ -165,7 +165,7 @@ module Exekutor
 
         def print_startup_message(worker, worker_options)
           puts "Worker #{worker.id} started (Use `#{Rainbow("ctrl + c").magenta}` to stop)"
-          puts worker_options.pretty_inspect.to_s if verbose?
+          puts worker_options.pretty_inspect if verbose?
         end
 
         # rubocop:disable Naming/AccessorMethodName
