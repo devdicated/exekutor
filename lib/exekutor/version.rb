@@ -2,5 +2,5 @@
 
 module Exekutor
   # The current version of Exekutor
-  VERSION = "0.1.0"
+  VERSION = "0.1.1"
 end
