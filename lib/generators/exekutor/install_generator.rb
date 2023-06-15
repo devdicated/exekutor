@@ -43,11 +43,9 @@ module Exekutor
     def create_fx_files
       return unless defined?(Fx)
 
-      %w[job_notifier requeue_orphaned_jobs].each do |function|
-        copy_file "functions/#{function}.sql", Fx::Definition.new(name: function, version: 1).full_path
-      end
-      %w[notify_workers requeue_orphaned_jobs].each do |trigger|
-        copy_file "triggers/#{trigger}.sql", Fx::Definition.new(name: trigger, version: 1, type: "trigger").full_path
+      %w[exekutor_broadcast_job_enqueued exekutor_requeue_orphaned_jobs].each do |name|
+        copy_file "functions/#{name}.sql", Fx::Definition.new(name: name, version: 1).full_path
+        copy_file "triggers/#{name}.sql", Fx::Definition.new(name: name, version: 1, type: "trigger").full_path
       end
     end
   end

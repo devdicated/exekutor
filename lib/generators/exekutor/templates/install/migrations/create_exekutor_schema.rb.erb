@@ -42,40 +42,40 @@ class CreateExekutorSchema < ActiveRecord::Migration[<%= migration_version %>]
       t.jsonb :error, null: false
     end
       <% if defined? Fx %>
-    create_function :job_notifier
-    create_trigger :notify_workers
+    create_function :exekutor_broadcast_job_enqueued
+    create_trigger :exekutor_broadcast_job_enqueued, on: :exekutor_jobs
 
-    create_function :requeue_orphaned_jobs
-    create_trigger :requeue_orphaned_jobs
+    create_function :exekutor_requeue_orphaned_jobs
+    create_trigger :exekutor_requeue_orphaned_jobs, on: :exekutor_workers
       <% else %>
     reversible do |direction|
       direction.up do
         execute <<~SQL
-          <%= function_sql "job_notifier" %>
+          <%= function_sql "exekutor_broadcast_job_enqueued" %>
         SQL
         execute <<~SQL
-          <%= trigger_sql "notify_workers" %>
+          <%= trigger_sql "exekutor_broadcast_job_enqueued" %>
         SQL
 
         execute <<~SQL
-          <%= function_sql "requeue_orphaned_jobs" %>
+          <%= function_sql "exekutor_requeue_orphaned_jobs" %>
         SQL
         execute <<~SQL
-          <%= trigger_sql "requeue_orphaned_jobs" %>
+          <%= trigger_sql "exekutor_requeue_orphaned_jobs" %>
         SQL
       end
       direction.down do
         execute <<~SQL
-          DROP TRIGGER requeue_orphaned_jobs ON exekutor_workers
+          DROP TRIGGER exekutor_requeue_orphaned_jobs ON exekutor_workers
         SQL
         execute <<~SQL
-          DROP FUNCTION requeue_orphaned_jobs
+          DROP FUNCTION exekutor_requeue_orphaned_jobs
         SQL
         execute <<~SQL
-          DROP TRIGGER notify_exekutor_workers ON exekutor_jobs
+          DROP TRIGGER exekutor_broadcast_job_enqueued ON exekutor_jobs
         SQL
         execute <<~SQL
-          DROP FUNCTION exekutor_job_notifier
+          DROP FUNCTION exekutor_broadcast_job_enqueued
         SQL
       end
     end
