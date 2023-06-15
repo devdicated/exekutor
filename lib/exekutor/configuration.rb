@@ -180,18 +180,19 @@ module Exekutor
 
     # @!macro
     #   @!method $1
-    #     The polling interval in seconds. When set, the worker will poll the database with this interval to check for
+    #     The polling interval. When set, the worker will poll the database with this interval to check for
     #     any pending jobs that a listener might have missed (if enabled).
     #     === Default value:
-    #     60
-    #     @return [Integer]
+    #     60 seconds
+    #     @return [ActiveSupport::Duration]
     #   @!method $1=(value)
-    #     Sets the polling interval in seconds. Set to +nil+ to disable polling. If the listener is disabled, this value
-    #     should be reasonably low so jobs don't have to wait in the queue too long; if it is enabled, this value can
-    #     be reasonably high.
-    #     @param value [Integer] the interval
+    #     Sets the polling interval. Set to +nil+ to disable polling. If the listener is disabled, this value
+    #     should be reasonably low so jobs don't have to wait in the queue too long; if the listener is enabled, this
+    #     value can be reasonably high.
+    #     @param value [ActiveSupport::Duration] the interval
     #     @return [self]
-    define_option :polling_interval, default: 60, type: [Integer, nil], range: 1...(1.day.to_i)
+    define_option :polling_interval, default: 1.minute, type: [ActiveSupport::Duration, nil],
+                  range: (1.second)...(1.day)
 
     # @!macro
     #   @!method $1
@@ -239,15 +240,16 @@ module Exekutor
 
     # @!macro
     #   @!method $1
-    #     The maximum number of seconds a thread may be idle before being stopped.
+    #     The maximum duration a thread may be idle before being stopped.
     #     === Default value:
-    #     60
-    #     @return [Integer]
+    #     60 seconds
+    #     @return [ActiveSupport::Duration]
     #   @!method $1=(value)
-    #     Sets the maximum number of seconds a thread may be idle before being stopped
-    #     @param value [Integer] the number of threads
+    #     Sets the maximum duration a thread may be idle before being stopped
+    #     @param value [ActiveSupport::Duration] the number of threads
     #     @return [self]
-    define_option :max_execution_thread_idletime, default: 60, type: Integer, range: 1..(1.day.to_i)
+    define_option :max_execution_thread_idletime, default: 1.minute, type: ActiveSupport::Duration,
+                  range: (1.second)..(1.day)
 
     # @!macro
     #   @!method $1?
@@ -263,18 +265,19 @@ module Exekutor
 
     # @!macro
     #   @!method $1?
-    #     The heartbeat timeout for the `/live` endpoint of the status server, in minutes. If the heartbeat of a worker
+    #     The heartbeat timeout for the `/live` endpoint of the status server. If the heartbeat of a worker
     #     is older than this timeout, the status server will respond with a 503 status indicating the service is
     #     down.
     #     === Default value:
-    #     30
-    #     @return [Integer]
+    #     30 minutes
+    #     @return [ActiveSupport::Duration]
     #   @!method $1=(value)
-    #     Sets the heartbeat timeout for the `/live` endpoint of the status server, in minutes. Must be between 2
-    #     and 1440 (24 hours).
-    #     @param value [Integer] The timeout in minutes
+    #     Sets the heartbeat timeout for the `/live` endpoint of the status server. Must be between 1 minute
+    #     and 24 hours.
+    #     @param value [ActiveSupport::Duration] The timeout in minutes
     #     @return [self]
-    define_option :healthcheck_timeout, default: 30, type: Integer, range: 2..1440
+    define_option :healthcheck_timeout, default: 30.minutes, type: ActiveSupport::Duration,
+                  range: (1.minute)..(1.day)
 
     # @!macro
     #   @!method $1?
@@ -294,7 +297,7 @@ module Exekutor
       {
         min_threads: min_execution_threads,
         max_threads: max_execution_threads,
-        max_thread_idletime: max_execution_thread_idletime
+        max_thread_idletime: max_execution_thread_idletime.to_f
       }.tap do |opts|
         opts[:set_db_connection_name] = set_db_connection_name? unless set_db_connection_name.nil?
         %i[enable_listener delete_completed_jobs delete_discarded_jobs delete_failed_jobs].each do |option|

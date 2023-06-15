@@ -23,17 +23,17 @@ module Exekutor
     # @option config [Array<String>] :queues the queues to work on
     # @option config [Integer] :min_threads the minimum number of execution threads that should be active
     # @option config [Integer] :max_threads the maximum number of execution threads that may be active
-    # @option config [Integer] :max_thread_idletime the maximum number of seconds a thread may be idle before being
-    #   stopped
-    # @option config [Integer] :polling_interval the polling interval in seconds
+    # @option config [ActiveSupport::Duration] :max_thread_idletime the maximum duration a thread may be idle before
+    #   being stopped
+    # @option config [ActiveSupport::Duration] :polling_interval the polling interval
     # @option config [Float] :poling_jitter the polling jitter
     # @option config [Boolean] :set_db_connection_name whether the DB connection name should be set
     # @option config [Integer,Boolean] :wait_for_termination how long the worker should wait on jobs to be completed
     #   before exiting
     # @option config [Integer] :status_server_port the port to run the status server on
     # @option config [String] :status_server_handler The name of the rack handler to use for the status server
-    # @option config [Integer] :healthcheck_timeout The timeout of a worker in minutes before the healthcheck server
-    #   deems it as down
+    # @option config [ActiveSupport::Duration] :healthcheck_timeout The timeout of a worker in minutes before the
+    #   healthcheck server deems it as down
     def initialize(config = {})
       super()
       @config = config

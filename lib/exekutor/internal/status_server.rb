@@ -23,7 +23,7 @@ module Exekutor
 
       DEFAULT_HANDLER = "webrick"
 
-      def initialize(worker:, pool:, port:, handler: DEFAULT_HANDLER, heartbeat_timeout: 30)
+      def initialize(worker:, pool:, port:, handler: DEFAULT_HANDLER, heartbeat_timeout: 30.minutes)
         super()
         @worker = worker
         @pool = pool
@@ -67,7 +67,7 @@ module Exekutor
       def run(worker, port)
         return unless state == :started && @thread_running.make_true
 
-        Exekutor.say "Starting status server at 0.0.0.0:#{port}… (Timeout: #{@heartbeat_timeout} minutes)"
+        Exekutor.say "Starting status server at 0.0.0.0:#{port}… (Timeout: #{@heartbeat_timeout.inspect})"
         @handler.run(App.new(worker, @heartbeat_timeout), Port: port, Host: "0.0.0.0", Silent: true,
                      Logger: ::Logger.new(File.open(File::NULL, "w")), AccessLog: []) do |server|
           @server.set server
@@ -107,7 +107,7 @@ module Exekutor
         private
 
         def flatlined?(last_heartbeat = @worker.last_heartbeat)
-          last_heartbeat.nil? || last_heartbeat < @heartbeat_timeout.minutes.ago
+          last_heartbeat.nil? || last_heartbeat < @heartbeat_timeout.ago
         end
 
         def render_threads

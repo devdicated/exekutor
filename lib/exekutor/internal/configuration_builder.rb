@@ -93,7 +93,9 @@ module Exekutor
         return if allowed_types.include?(value.class)
 
         raise error_class, "##{name} should be an instance of #{
-          allowed_types.to_sentence(last_word_connector: ", or ")} (Actual: #{value.class})"
+          allowed_types.map { |c| c == NilClass || c.nil? ? "nil" : c }
+                       .to_sentence(two_words_connector: " or ", last_word_connector: ", or ")
+        } (Actual: #{value.class})"
       end
 
       # Validates whether the value is a valid enum option
@@ -101,8 +103,10 @@ module Exekutor
       def validate_option_enum!(name, value, *allowed_values)
         return if allowed_values.include?(value)
 
-        raise error_class, "##{name} should be one of #{allowed_values.map(&:inspect)
-                                                                      .to_sentence(last_word_connector: ", or ")}"
+        raise error_class, "##{name} should be one of #{
+          allowed_values.map(&:inspect)
+                        .to_sentence(two_words_connector: " or ", last_word_connector: ", or ")
+        }"
       end
 
       # Validates whether the value falls in the allowed range
@@ -110,8 +114,10 @@ module Exekutor
       def validate_option_range!(name, value, allowed_range)
         return if allowed_range.include?(value)
 
-        raise error_class, "##{name} should be between #{allowed_range.first} and #{allowed_range.last}#{
-          " (exclusive)" if allowed_range.respond_to?(:exclude_end?) && allowed_range.exclude_end?}"
+        raise error_class, <<~MSG
+            ##{name} should be between #{allowed_range.first.inspect} and #{allowed_range.last.inspect}#{
+          " (exclusive)" if allowed_range.respond_to?(:exclude_end?) && allowed_range.exclude_end?}
+        MSG
       end
 
       protected

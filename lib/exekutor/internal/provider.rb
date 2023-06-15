@@ -25,16 +25,16 @@ module Exekutor
       # @param reserver [Reserver] the job reserver
       # @param executor [Executor] the job executor
       # @param pool [ThreadPoolExecutor] the thread pool to use
-      # @param polling_interval [Integer] the polling interval
+      # @param polling_interval [ActiveSupport::Duration] the polling interval
       # @param interval_jitter [Float] the polling interval jitter
-      def initialize(reserver:, executor:, pool:, polling_interval: 60,
+      def initialize(reserver:, executor:, pool:, polling_interval: 60.seconds,
                      interval_jitter: polling_interval.to_i > 1 ? polling_interval * 0.1 : 0)
         super()
         @reserver = reserver
         @executor = executor
         @pool = pool
 
-        @polling_interval = polling_interval.freeze
+        @polling_interval = polling_interval.to_i.freeze
         @interval_jitter = interval_jitter.to_f.freeze
 
         @event = Concurrent::Event.new

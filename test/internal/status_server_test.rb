@@ -15,7 +15,7 @@ class StatusServerTest < Minitest::Test
   end
 
   def app
-    Exekutor.const_get(:Internal)::StatusServer::App.new(worker, 10)
+    Exekutor.const_get(:Internal)::StatusServer::App.new(worker, 10.minutes)
   end
 
   def setup

@@ -76,7 +76,7 @@ module Exekutor
         def worker_options(config_file, cli_overrides)
           worker_options = DEFAULT_CONFIGURATION.dup
 
-          load_config_files(config_file, worker_options)
+          ConfigLoader.new(config_file, @global_options).load_config(worker_options)
 
           worker_options.merge! Exekutor.config.worker_options
           worker_options.merge! @global_options.slice(:identifier)
@@ -113,37 +113,6 @@ module Exekutor
             [threads, threads]
           else
             threads.to_s.split(":").map { |s| Integer(s) }
-          end
-        end
-
-        def load_config_files(config_files, worker_options)
-          config_files = if config_files.is_a? DefaultConfigFileValue
-                           config_files.to_a(@global_options[:identifier])
-                         else
-                           config_files&.map { |path| File.expand_path(path, Rails.root) }
-                         end
-
-          config_files&.each { |path| load_config_file(path, worker_options) }
-        end
-
-        def load_config_file(path, worker_options)
-          puts "Loading config file: #{path}" if verbose?
-          config = begin
-                     YAML.safe_load(File.read(path), symbolize_names: true)
-                   rescue StandardError => e
-                     raise Error, "Cannot read config file: #{path} (#{e})"
-                   end
-          unless config.keys == [:exekutor]
-            raise Error, "Config should have an `exekutor` root node: #{path} (Found: #{config.keys.join(", ")})"
-          end
-
-          # Remove worker specific options before calling Exekutor.config.set
-          worker_options.merge! config[:exekutor].extract!(:queue, :status_server_port)
-
-          begin
-            Exekutor.config.set(**config[:exekutor])
-          rescue StandardError => e
-            raise Error, "Cannot load config file: #{path} (#{e})"
           end
         end
 
@@ -255,6 +224,67 @@ module Exekutor
                            end
 
             puts "Running worker as a daemon… (Use `#{Rainbow("exekutor #{stop_options}stop").magenta}` to stop)"
+          end
+        end
+
+        # Takes care of loading YAML configuration
+        class ConfigLoader
+          def initialize(files, options)
+            @config_files = files
+            @options = options
+          end
+
+          def load_config(worker_options)
+            each_file do |path|
+              config = load_config_file(path)
+              apply_config_file(config, worker_options)
+            end
+          end
+
+          private
+
+          def each_file(&block)
+            if @config_files.is_a? DefaultConfigFileValue
+              @config_files.to_a(@options[:identifier]).each(&block)
+            elsif @config_files
+              @config_files.map { |path| File.expand_path(path, Rails.root) }.each(&block)
+            end
+          end
+
+          def load_config_file(path)
+            puts "Loading config file: #{path}" if @options[:verbose]
+            config = begin
+                       YAML.safe_load(File.read(path), symbolize_names: true)
+                     rescue StandardError => e
+                       raise Error, "Cannot read config file: #{path} (#{e})"
+                     end
+            unless config.keys == [:exekutor]
+              raise Error, "Config should have an `exekutor` root node: #{path} (Found: #{config.keys.join(", ")})"
+            end
+
+            config
+          end
+
+          def apply_config_file(config, worker_options)
+            # Remove worker specific options before calling Exekutor.config.set
+            worker_options.merge! config[:exekutor].extract!(:queue, :status_server_port)
+
+            convert_duration_options! config[:exekutor]
+
+            begin
+              Exekutor.config.set(**config[:exekutor])
+            rescue StandardError => e
+              raise Error, "Cannot load config file: #{path} (#{e})"
+            end
+          end
+
+          def convert_duration_options!(config)
+            { polling_interval: :seconds, max_execution_thread_idletime: :seconds, healthcheck_timeout: :minutes }
+              .each do |duration_option, duration_interval|
+              if config[duration_option].is_a? Numeric
+                config[duration_option] = config[duration_option].send(duration_interval)
+              end
+            end
           end
         end
 

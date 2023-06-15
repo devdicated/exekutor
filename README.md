@@ -98,7 +98,7 @@ The polling interval in seconds. Exekutor polls for jobs every 60 seconds by def
 might have missed.
 
 ```ruby
-Exekutor.config.polling_interval = 60
+Exekutor.config.polling_interval = 60.seconds
 ```
 
 #### Polling jitter
@@ -138,7 +138,7 @@ Exekutor.config.max_execution_threads = 10
 The number of seconds that an execution thread may be idle before being reclaimed.
 
 ```ruby
-Exekutor.config.max_execution_thread_idletime = 60
+Exekutor.config.max_execution_thread_idletime = 60.seconds
 ```
 
 #### Status server handler
@@ -156,7 +156,7 @@ every time it finishes a job and after polling for jobs. This heartbeat is used 
 executing jobs. This means that the timeout should be longer than the execution time of your jobs.
 
 ```ruby
-Exekutor.config.healthcheck_timeout = 30
+Exekutor.config.healthcheck_timeout = 30.minutes
 ```
 
 #### Quiet
@@ -210,7 +210,7 @@ exekutor:
 
 #### Polling interval / jitter
 
-The polling interval and jitter for this worker.
+The polling interval (in seconds) and jitter for this worker.
 
 ```yaml
 exekutor:
@@ -220,7 +220,7 @@ exekutor:
 
 #### Execution thread options
 
-The minimum and maximum threads this worker should spawn and the thread idletime for reclaiming threads.
+The minimum and maximum threads this worker should spawn and the thread idletime (in seconds) for reclaiming threads.
 
 ```yaml
 exekutor:
@@ -231,7 +231,7 @@ exekutor:
 
 #### Status server options
 
-The status server handler, the port to use, and the worker timeout.
+The status server handler, the port to use, and the worker timeout (in minutes).
 
 ```yaml
 exekutor:
@@ -517,14 +517,14 @@ Exekutor::Worker.start(worker_options)
 - `:enable_listener` – whether to enable the listener
 - `:min_threads` – the minimum number of execution threads that should be active
 - `:max_threads` – the maximum number of execution threads that may be active
-- `:max_thread_idletime` – the maximum number of seconds a thread may be idle before being stopped 
-- `:polling_interval` – the polling interval in seconds 
+- `:max_thread_idletime` – the maximum duration a thread may be idle before being stopped 
+- `:polling_interval` – the polling interval 
 - `:poling_jitter` – the polling jitter 
 - `:set_db_connection_name` – whether the DB connection name should be set
 - `:wait_for_termination` – how long the worker should wait on jobs to be completed before exiting
 - `:status_server_port` – the port to run the status server on 
 - `:status_server_handler` – The name of the rack handler to use for the status server
-- `:healthcheck_timeout` – The timeout of a worker in minutes before the status server deems it as down
+- `:healthcheck_timeout` – The timeout of a worker before the status server deems it as down
 
 The default values for most of the options can be fetched by:
 ```ruby
