@@ -321,7 +321,7 @@ module Exekutor
         # The default value for the config file
         class DefaultConfigFileValue < DefaultOptionValue
           def initialize
-            super <<~DESC
+            super(<<~DESC)
               "config/exekutor.yml", overridden by "config/exekutor.%{identifier}.yml" if an identifier is specified
             DESC
           end

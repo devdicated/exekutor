@@ -101,7 +101,7 @@ module Exekutor
           table = Terminal::Table.new headings: ["id", "Status", "Last heartbeat"]
           table.title = host if many_hosts
           worker_count = 0
-          Exekutor::Info::Worker.where(hostname: host).each do |worker|
+          Exekutor::Info::Worker.where(hostname: host).find_each do |worker|
             worker_count += 1
             table << worker_info_row(worker)
           end

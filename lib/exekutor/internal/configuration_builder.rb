@@ -26,7 +26,7 @@ module Exekutor
         end
 
         options.each do |name, value|
-          send "#{name}=", value
+          send :"#{name}=", value
         end
         self
       end
@@ -54,7 +54,7 @@ module Exekutor
         private
 
         def define_writer(name, required, type, enum, range)
-          define_method "#{name}=" do |value|
+          define_method :"#{name}=" do |value|
             validate_option_presence! name, value if required
             validate_option_type! name, value, *type if type.present?
             validate_option_enum! name, value, *enum if enum.present?
