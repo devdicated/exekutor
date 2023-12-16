@@ -1,0 +1,19 @@
+---
+exekutor:
+  queues:
+    - queues
+    - to
+    - watch
+  min_threads: 7
+  max_threads: 23
+  min_priority: 719
+  max_priority: 5039
+  max_thread_idletime: 61
+  enable_listener: true
+  polling_interval: 37
+  polling_jitter: 0.127
+  status_server_port: 7919
+  status_server_handler: rack-handler
+  healthcheck_timeout: 181
+  set_db_connection_name: false
+  wait_for_termination: 97

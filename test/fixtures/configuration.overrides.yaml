@@ -1,0 +1,14 @@
+---
+exekutor:
+  queues: override
+  min_threads: 8
+  max_threads: 24
+  min_priority: 720
+  max_priority: 5040
+  max_thread_idletime: 62
+  polling_interval: 38
+  polling_jitter: 0.128
+  status_server_port: 7920
+  status_server_handler: 'another-rack-handler'
+  healthcheck_timeout: 182
+  wait_for_termination: 98
