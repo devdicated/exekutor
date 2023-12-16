@@ -52,12 +52,13 @@ module Exekutor
         return unless @thread_running.value
 
         server = @server.value
-        if server.respond_to? :shutdown
-          server.shutdown
-        elsif server.respond_to? :stop
-          server.stop
+        shutdown_method = %i[shutdown stop].find { |method| server.respond_to? method }
+        if shutdown_method
+          server.send(shutdown_method)
+          Exekutor.say "Status server stopped"
         elsif server
-          Exekutor.say! "Cannot shutdown status server, #{server.class.name} does not respond to shutdown or stop"
+          Exekutor.print_error "Cannot shutdown status server, " \
+                               "#{server.class.name} does not respond to `shutdown` or `stop`"
         end
       end
 

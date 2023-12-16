@@ -11,9 +11,9 @@ module Exekutor
       # Creates a new Reserver
       # @param worker_id [String] the id of the worker
       # @param queues [Array<String>] the queues to watch
-      def initialize(worker_id, queues)
+      def initialize(worker_id, queues: nil, min_priority: nil, max_priority: nil)
         @worker_id = worker_id
-        @queue_filter_sql = build_queue_filter_sql(queues)
+        @reserve_filter_sql = build_filter_sql(queues: queues, min_priority: min_priority, max_priority: max_priority)
         @json_serializer = Exekutor.config.load_json_serializer
       end
 
@@ -26,7 +26,7 @@ module Exekutor
         results = Exekutor::Job.connection.exec_query <<~SQL, ACTION_NAME, [@worker_id, limit], prepare: true
           UPDATE exekutor_jobs SET worker_id = $1, status = 'e' WHERE id IN (
              SELECT id FROM exekutor_jobs
-                WHERE scheduled_at <= now() AND "status"='p' #{@queue_filter_sql}
+                WHERE scheduled_at <= now() AND "status"='p'#{" AND #{@reserve_filter_sql}" if @reserve_filter_sql}
                 ORDER BY priority, scheduled_at, enqueued_at
                 FOR UPDATE SKIP LOCKED
                 LIMIT $2
@@ -51,7 +51,7 @@ module Exekutor
       # @return [Time,nil] The earliest scheduled at, or nil if the queues are empty
       def earliest_scheduled_at
         jobs = Exekutor::Job.pending
-        jobs.where! @queue_filter_sql.gsub(/^\s*AND\s+/, "") unless @queue_filter_sql.nil?
+        jobs.where! @reserve_filter_sql unless @reserve_filter_sql.nil?
         jobs.minimum(:scheduled_at)
       end
 
@@ -72,6 +72,16 @@ module Exekutor
         @json_serializer.load str unless str.nil?
       end
 
+      # Builds SQL filter for the given queues and priorities
+      def build_filter_sql(queues:, min_priority:, max_priority:)
+        filters = [
+          build_queue_filter_sql(queues),
+          build_priority_filter_sql(min_priority, max_priority)
+        ]
+        filters.compact!
+        filters.join(" AND ") unless filters.empty?
+      end
+
       # Builds SQL filter for the given queues
       def build_queue_filter_sql(queues)
         return nil if queues.nil? || (queues.is_a?(Array) && queues.empty?)
@@ -79,11 +89,32 @@ module Exekutor
         queues = queues.first if queues.is_a?(Array) && queues.one?
         validate_queues! queues
 
-        if queues.is_a? Array
-          Exekutor::Job.sanitize_sql_for_conditions(["AND queue IN (?)", queues])
-        else
-          Exekutor::Job.sanitize_sql_for_conditions(["AND queue = ?", queues])
-        end
+        conditions = if queues.is_a? Array
+                       ["queue IN (?)", queues]
+                     else
+                       ["queue = ?", queues]
+                     end
+        Exekutor::Job.sanitize_sql_for_conditions conditions
+      end
+
+      # Builds SQL filter for the given priorities
+      def build_priority_filter_sql(minimum, maximum)
+        minimum = coerce_priority(minimum)
+        maximum = coerce_priority(maximum)
+
+        conditions = if minimum && maximum
+                       ["priority BETWEEN ? AND ?", minimum, maximum]
+                     elsif minimum
+                       ["priority >= ?", minimum]
+                     elsif maximum
+                       ["priority <= ?", maximum]
+                     end
+        Exekutor::Job.sanitize_sql_for_conditions conditions if conditions
+      end
+
+      # @return [Integer,nil] returns nil unless +priority+ is between 1 and 32,766
+      def coerce_priority(priority)
+        priority if priority && (1..32_766).cover?(priority)
       end
 
       # Raises an error if the queues value is invalid
@@ -96,7 +127,8 @@ module Exekutor
         when String, Symbol
           raise ArgumentError, "queue name cannot be empty" unless valid_queue_name? queues
         else
-          raise ArgumentError, "queues must be nil, a String, Symbol, or an array of Strings or Symbols"
+          raise ArgumentError,
+                "queues must be nil, a String, Symbol, or an array of Strings or Symbols (Actual: #{queues.class})"
         end
       end
 

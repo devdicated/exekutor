@@ -179,6 +179,7 @@ class ConfigurationTest < Minitest::Test
       polling_interval: config.polling_interval,
       polling_jitter: config.polling_jitter,
       status_server_handler: config.status_server_handler,
+      status_server_port: config.status_server_port,
       healthcheck_timeout: config.healthcheck_timeout
     }
 

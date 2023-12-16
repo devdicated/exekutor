@@ -190,7 +190,7 @@ class StatusServerTest < Minitest::Test
     # wait max 500 ms for the server to start
     wait_until { server.running? }
 
-    Exekutor.expects(:say!).with(includes("Cannot shutdown status server"))
+    Exekutor.expects(:print_error).with(includes("Cannot shutdown status server"))
     server.stop
   end
 

@@ -255,13 +255,25 @@ module Exekutor
     #   @!method $1?
     #     The rack handler for the status server
     #     === Default value:
-    #     webrick
+    #     +"webrick"+
     #     @return [String]
     #   @!method $1=(value)
     #     Sets the rack handler for the status server. The handler should respond to +#shutdown+ or +#stop+.
     #     @param value [String] the name of the handler
     #     @return [self]
     define_option :status_server_handler, default: "webrick", type: String
+
+    # @!macro
+    #   @!method $1?
+    #     The port number for the status server
+    #     === Default value:
+    #     +nil+ (ie. the status server is disabled)
+    #     @return [Integer]
+    #   @!method $1=(value)
+    #     Sets the port number for the status server.
+    #     @param value [Integer] the port number
+    #     @return [self]
+    define_option :status_server_port, default: nil, type: Integer
 
     # @!macro
     #   @!method $1?
@@ -303,7 +315,8 @@ module Exekutor
         %i[enable_listener delete_completed_jobs delete_discarded_jobs delete_failed_jobs].each do |option|
           opts[option] = send(:"#{option}?") ? true : false
         end
-        %i[polling_interval polling_jitter status_server_handler healthcheck_timeout].each do |option|
+        %i[polling_interval polling_jitter status_server_handler status_server_port healthcheck_timeout]
+          .each do |option|
           opts[option] = send(option)
         end
       end

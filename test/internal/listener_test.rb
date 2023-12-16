@@ -8,10 +8,11 @@ class ListenerTest < Minitest::Test
   def setup
     super
     @thread_pool = Concurrent::FixedThreadPool.new(2)
-    @queues = []
+    @queues = ["test-queue"]
     @provider = Exekutor.const_get(:Internal)::Provider.new(reserver: mock, executor: mock, pool: thread_pool,
                                                             polling_interval: nil)
     @listener = Exekutor.const_get(:Internal)::Listener.new(worker_id: "test-worker-id", queues: @queues,
+                                                            min_priority: 99, max_priority: 999,
                                                             provider: @provider, pool: thread_pool)
     @listener.start
   end
@@ -55,7 +56,7 @@ class ListenerTest < Minitest::Test
     provider.expects(:update_earliest_scheduled_at).with(scheduled_at)
 
     Exekutor::Job.connection.exec_query(
-      %(NOTIFY "#{listener.class::JOB_ENQUEUED_CHANNEL}", 'id:test-id;q:test-queue;t:#{scheduled_at}';)
+      %(NOTIFY "#{listener.class::JOB_ENQUEUED_CHANNEL}", 'id:test-id;q:test-queue;p:123;t:#{scheduled_at}';)
     )
     sleep(0.1)
   end
@@ -77,19 +78,32 @@ class ListenerTest < Minitest::Test
     listener.send(:logger).expects(:error).with(regexp_matches(/^\[Listener\] Notification payload is missing t$/))
 
     Exekutor::Job.connection.exec_query(
-      %(NOTIFY "#{listener.class::JOB_ENQUEUED_CHANNEL}", 'id:test-id;q:test-queue;')
+      %(NOTIFY "#{listener.class::JOB_ENQUEUED_CHANNEL}", 'id:test-id;q:test-queue;p:123')
     )
     sleep(0.1)
   end
 
   def test_queue_filter
-    queues.push "my-queue"
     wait_until { listener.send(:listening?) }
 
     provider.expects(:update_earliest_scheduled_at).never
 
     Exekutor::Job.connection.exec_query(
-      %(NOTIFY "#{listener.class::JOB_ENQUEUED_CHANNEL}", 'id:test-id;q:test-queue;t:#{Time.current.to_f}';)
+      %(NOTIFY "#{listener.class::JOB_ENQUEUED_CHANNEL}", 'id:test-id;q:other-queue;p:123;t:#{Time.current.to_f}';)
+    )
+    sleep(0.1)
+  end
+
+  def test_priority_filter
+    wait_until { listener.send(:listening?) }
+
+    provider.expects(:update_earliest_scheduled_at).never
+
+    Exekutor::Job.connection.exec_query(
+      %(NOTIFY "#{listener.class::JOB_ENQUEUED_CHANNEL}", 'id:test-id;q:test-queue;p:98;t:#{Time.current.to_f}';)
+    )
+    Exekutor::Job.connection.exec_query(
+      %(NOTIFY "#{listener.class::JOB_ENQUEUED_CHANNEL}", 'id:test-id;q:test-queue;p:1000;t:#{Time.current.to_f}';)
     )
     sleep(0.1)
   end

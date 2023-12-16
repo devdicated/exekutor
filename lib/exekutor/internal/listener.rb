@@ -24,11 +24,14 @@ module Exekutor
       # @param pool [ThreadPoolExecutor] the thread pool to use
       # @param wait_timeout [Integer] the time to listen for notifications
       # @param set_db_connection_name [Boolean] whether to set the application name on the DB connection
-      def initialize(worker_id:, provider:, pool:, queues: nil, wait_timeout: 60, set_db_connection_name: false)
+      def initialize(worker_id:, provider:, pool:, queues: nil, min_priority: nil, max_priority: nil, wait_timeout: 60,
+                     set_db_connection_name: false)
         super()
         @config = {
           worker_id: worker_id,
-          queues: queues || [],
+          queues: queues.presence,
+          min_priority: min_priority,
+          max_priority: max_priority,
           wait_timeout: wait_timeout,
           set_db_connection_name: set_db_connection_name
         }
@@ -67,11 +70,22 @@ module Exekutor
         PROVIDER_CHANNEL % @config[:worker_id]
       end
 
-      # Whether this listener is listening to the given queue
-      # @return [Boolean]
+      # @return [Boolean] Whether the job matches the configured queues and priority range
+      def job_filter_match?(job_info)
+        listening_to_queue?(job_info["q"]) && listening_to_priority?(job_info["p"].to_i)
+      end
+
+      # @return [Boolean] Whether this listener is listening to the given queue
       def listening_to_queue?(queue)
         queues = @config[:queues]
-        queues.empty? || queues.include?(queue)
+        queues.nil? || queues.include?(queue)
+      end
+
+      # @return [Boolean] Whether this listener is listening to the given priority
+      def listening_to_priority?(priority)
+        minimum = @config[:min_priority]
+        maximum = @config[:max_priority]
+        (minimum.nil? || minimum <= priority) && (maximum.nil? || maximum >= priority)
       end
 
       # Starts the listener thread
@@ -129,8 +143,9 @@ module Exekutor
                          JobParser.parse(payload)
                        rescue StandardError => e
                          logger.error e.message
+                         nil
                        end
-            next unless job_info && listening_to_queue?(job_info["q"])
+            next unless job_info && job_filter_match?(job_info)
 
             @provider.update_earliest_scheduled_at(job_info["t"].to_f)
           end
@@ -177,7 +192,7 @@ module Exekutor
 
       # Parses a NOTIFY payload to a job
       class JobParser
-        JOB_INFO_KEYS = %w[id q t].freeze
+        JOB_INFO_KEYS = %w[id q p t].freeze
 
         def self.parse(payload)
           job_info = begin

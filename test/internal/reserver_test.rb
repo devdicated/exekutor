@@ -4,12 +4,15 @@ require_relative "../rails_helper"
 
 # noinspection RubyInstanceMethodNamingConvention
 class ReserverTest < Minitest::Test
-  attr_reader :reserver, :reserver_with_queues
+  attr_reader :reserver, :reserver_with_queues, :reserver_with_priorities
 
   def setup
     super
-    @reserver = Exekutor.const_get(:Internal)::Reserver.new("test-worker-id", nil)
-    @reserver_with_queues = Exekutor.const_get(:Internal)::Reserver.new("test-worker-id", %i[queue1 queue2])
+    @reserver = Exekutor.const_get(:Internal)::Reserver.new("test-worker-id")
+    @reserver_with_queues = Exekutor.const_get(:Internal)::Reserver.new("test-worker-id", queues: %i[queue1 queue2])
+    @reserver_with_priorities = Exekutor.const_get(:Internal)::Reserver.new("test-worker-id",
+                                                                            min_priority: 100,
+                                                                            max_priority: 200)
   end
 
   def test_reserve_without_availability
@@ -60,20 +63,20 @@ class ReserverTest < Minitest::Test
                  ], jobs)
   end
 
-  def test_queue_filter_sql_without_queues
-    refute reserver.send(:build_queue_filter_sql, nil)
-    refute reserver.send(:build_queue_filter_sql, [])
+  def test_queue_filter_sql_without_queues_and_priorities
+    refute reserver.send(:build_filter_sql, queues: nil, min_priority: nil, max_priority: nil)
+    refute reserver.send(:build_filter_sql, queues: [], min_priority: 0, max_priority: 32_767)
   end
 
   def test_queue_filter_sql_with_single_queue
-    assert_equal "AND queue = 'queue'", reserver.send(:build_queue_filter_sql, "queue")
-    assert_equal "AND queue = 'queue'", reserver.send(:build_queue_filter_sql, :queue)
-    assert_equal "AND queue = 'queue'", reserver.send(:build_queue_filter_sql, ["queue"])
+    assert_equal "queue = 'queue'", reserver.send(:build_queue_filter_sql, "queue")
+    assert_equal "queue = 'queue'", reserver.send(:build_queue_filter_sql, :queue)
+    assert_equal "queue = 'queue'", reserver.send(:build_queue_filter_sql, ["queue"])
   end
 
   def test_queue_filter_sql_with_multiple_queues
-    assert_equal "AND queue IN ('queue1','queue2')", reserver.send(:build_queue_filter_sql, %w[queue1 queue2])
-    assert_equal "AND queue IN ('queue1','queue2')", reserver.send(:build_queue_filter_sql, %i[queue1 queue2])
+    assert_equal "queue IN ('queue1','queue2')", reserver.send(:build_queue_filter_sql, %w[queue1 queue2])
+    assert_equal "queue IN ('queue1','queue2')", reserver.send(:build_queue_filter_sql, %i[queue1 queue2])
   end
 
   def test_queue_filter_sql_with_invalid_queue
@@ -84,6 +87,20 @@ class ReserverTest < Minitest::Test
   def test_queue_filter_sql_with_invalid_queue_item
     assert_raises(ArgumentError) { reserver.send(:build_queue_filter_sql, ["queue", 1]) }
     assert_raises(ArgumentError) { reserver.send(:build_queue_filter_sql, ["queue", :""]) }
+  end
+
+  def test_priority_filter_sql_with_minimum
+    assert_equal "priority >= 123", reserver.send(:build_priority_filter_sql, 123, nil)
+    assert_equal "priority >= 123", reserver.send(:build_priority_filter_sql, 123, 32_767)
+  end
+
+  def test_priority_filter_sql_with_maximum
+    assert_equal "priority <= 123", reserver.send(:build_priority_filter_sql, nil, 123)
+    assert_equal "priority <= 123", reserver.send(:build_priority_filter_sql, 0, 123)
+  end
+
+  def test_priority_filter_sql_with_range
+    assert_equal "priority BETWEEN 123 AND 456", reserver.send(:build_priority_filter_sql, 123, 456)
   end
 
   def test_get_abandoned_jobs

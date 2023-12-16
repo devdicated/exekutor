@@ -178,7 +178,7 @@ module Exekutor
     end
 
     def create_provider(worker_options, executor, thread_pool)
-      @reserver = Internal::Reserver.new @record.id, worker_options[:queues]
+      @reserver = Internal::Reserver.new @record.id, **worker_options.slice(:queues, :min_priority, :max_priority)
       provider = Internal::Provider.new reserver: @reserver, executor: executor, pool: thread_pool,
                                         **provider_options(worker_options)
 

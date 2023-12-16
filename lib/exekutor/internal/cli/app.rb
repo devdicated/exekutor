@@ -35,9 +35,11 @@ module Exekutor
           cmd.flag %i[env environment], desc: "The Rails environment"
           cmd.flag %i[q queue], default_value: Manager::DEFAULT_QUEUE, multiple: true,
                    desc: "Queue to work from"
+          cmd.flag %i[p priority], type: String, default_value: Manager::DEFAULT_PRIORITIES,
+                   desc: "The job priorities to execute, specified as `min` or `min:max`"
           cmd.flag %i[t threads], type: String, default_value: Manager::DEFAULT_THREADS,
                    desc: "The number of threads for executing jobs, specified as `min:max`"
-          cmd.flag %i[p poll_interval], type: Integer, default_value: DefaultOptionValue.new(value: 60),
+          cmd.flag %i[i poll_interval], type: Integer, default_value: DefaultOptionValue.new(value: 60),
                    desc: "Interval between polls for available jobs (in seconds)"
           cmd.flag %i[cfg configfile], type: String, default_value: Manager::DEFAULT_CONFIG_FILES, multiple: true,
                    desc: "The YAML configuration file to load. If specifying multiple files, the last file takes " \

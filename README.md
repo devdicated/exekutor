@@ -21,13 +21,13 @@ which uses powerful PostgreSQL features for low latency and efficient locking;
 ## Installation and set up
 
 In a nutshell:
+
 - Install the `exekutor` gem;
 - Run `rails g exekutor:install` and `rails db:migrate`;
 - Configure Rails to use Exekutor;
 - Start your worker and queue your jobs.
 
 Read the [Getting started guide](GETTING_STARTED.md) for the detailed documentation.
-
 
 ## Configuration
 
@@ -36,7 +36,7 @@ Exekutor can be configured in multiple ways: using [code](#code), a [yaml file](
 
 ### Code
 
-Most of the configuration options can be configured from the initializer file. This file will be generated for you when 
+Most of the configuration options can be configured from the initializer file. This file will be generated for you when
 you run `rails g exekutor:install`.
 
 #### Default queue priority
@@ -47,7 +47,6 @@ The default priority for jobs without an explicitly specified priority. The vali
 ```ruby
 Exekutor.config.default_queue_priority = 16_383
 ```
-
 
 #### Base record class name
 
@@ -75,7 +74,7 @@ Exekutor.config.logger = Rails.active_job.logger
 
 #### Set DB connection name
 
-Whether the listener should set the DB connection name. When Exekutor is started using the CLI, this option also 
+Whether the listener should set the DB connection name. When Exekutor is started using the CLI, this option also
 configures whether to name the other DB connections used by the worker.
 
 ```ruby
@@ -109,7 +108,7 @@ the same time. A value of 0.1 means the polling interval can deviate up to 10%, 
 _For example:_
 With a polling interval of **60** and a jitter of **0.1**, the actual polling interval can range from **57** to **63**
 seconds.
- 
+
 ```ruby
 Exekutor.config.polling_jitter = 0.1
 ``` 
@@ -125,8 +124,8 @@ Exekutor.config.min_execution_threads = 1
 #### Maximum execution threads
 
 The maximum number of threads that may be active to execute jobs. By default, Exekutor uses your database connection
-pool size minus 1. Be aware that if you set this to a value greater than `connection_db_config.pool`, workers may have 
-to wait for database connections to become available because all connections are occupied by other threads. This may 
+pool size minus 1. Be aware that if you set this to a value greater than `connection_db_config.pool`, workers may have
+to wait for database connections to become available because all connections are occupied by other threads. This may
 result in an `ActiveRecord::ConnectionTimeoutError` if the thread has to wait too long.
 
 ```ruby
@@ -151,8 +150,8 @@ Exekutor.config.status_handler = "webrick"
 
 #### Healthcheck timeout
 
-The timeout in minutes after which the status server deems a worker to be down. The worker updates a heartbeat 
-every time it finishes a job and after polling for jobs. This heartbeat is used to check whether the worker is still 
+The timeout in minutes after which the status server deems a worker to be down. The worker updates a heartbeat
+every time it finishes a job and after polling for jobs. This heartbeat is used to check whether the worker is still
 executing jobs. This means that the timeout should be longer than the execution time of your jobs.
 
 ```ruby
@@ -169,8 +168,8 @@ Exekutor.config.quiet = false
 
 ### YAML
 
-When starting a worker from the CLI, a number of configuration options can be overridden using a YAML configuration 
-file. 
+When starting a worker from the CLI, a number of configuration options can be overridden using a YAML configuration
+file.
 
 #### Queues
 
@@ -178,7 +177,17 @@ The queues this worker should perform jobs out of.
 
 ```yaml
 exekutor:
-  queues: ["queues", "to", "watch"]
+  queues: [ "queues", "to", "watch" ]
+```
+
+#### Job priorities
+
+The minimum and maximum job priority to perform
+
+```yaml
+exekutor:
+  min_priority: 100
+  max_priority: 200
 ```
 
 #### Json serializer
@@ -251,12 +260,13 @@ exekutor:
 
 #### Wait for termination
 
-Whether and how long to wait for the execution threads to finish upon exit. 
-- If the value is `false` or `nil`, the worker will not wait for the execution threads to finish but will not kill the 
-threads either; 
+Whether and how long to wait for the execution threads to finish upon exit.
+
+- If the value is `false` or `nil`, the worker will not wait for the execution threads to finish but will not kill the
+  threads either;
 - If the value is zero, the worker will kill the execution threads immediately upon exit;
-- If the value is a positive number, the worker will wait for the indicated amount of seconds to let the execution 
-threads finish and will kill the threads if the timeout is exceeded. 
+- If the value is a positive number, the worker will wait for the indicated amount of seconds to let the execution
+  threads finish and will kill the threads if the timeout is exceeded.
 - Otherwise the worker will wait for the execution threads to finish indefinitely.
 
 ```yaml
@@ -266,16 +276,28 @@ exekutor:
 
 ### Command line options
 
-A small number of options are also configurable through the command line. The command line options override the values 
+A small number of options are also configurable through the command line. The command line options override the values
 set from the YAML and initializer files.
 
 #### Queues
 
-The queues this worker should perform jobs out of. The option can be specified mulitple time to indicate multiple queues.
+The queues this worker should perform jobs out of. The option can be specified mulitple time to indicate multiple
+queues.
 
 ```sh
 exekutor start --queue queue --queue another_queue --queue third_queue
 ```
+
+#### Job priorities
+
+The minimum and maximum job priority to perform, specified as `min:max`. If only 1 value is specified, it will be used 
+as a **minimum**
+
+
+```sh
+exekutor start --priority 100:200
+```
+
 
 #### Polling interval
 
@@ -285,9 +307,9 @@ The polling interval in seconds.
 exekutor start --poll_interval 90
 ```
 
-#### Maximum execution threads
+#### Number of execution threads
 
-The minimum and maximum number of execution threads, specified as `min:max`. If only 1 value is specified, the thread 
+The minimum and maximum number of execution threads, specified as `min:max`. If only 1 value is specified, the thread
 pool will have a fixed size.
 
 ```sh
@@ -307,8 +329,8 @@ exekutor start [options]
 #### Options
 
 - `--help` – Show the help message.
-- `--identifier=arg` – The identifier for this worker. This identifier is shown in the process name and the connection 
-name.
+- `--identifier=arg` – The identifier for this worker. This identifier is shown in the process name and the connection
+  name.
 - `--pidfile=path` – The path to the PID file for a daemonized worker.
 - `--configfile=path` – The path to the YAML configfile.
 - `--daemonize` – Whether to daemonize the worker.
@@ -327,10 +349,12 @@ exekutor stop [options]
 
 #### Options
 
-- `--identifier=arg` – The identifier of the worker to stop. (translates to `--pidfile=tmp/pids/exekutor.%{identifier}.pid`)
+- `--identifier=arg` – The identifier of the worker to stop. (translates
+  to `--pidfile=tmp/pids/exekutor.%{identifier}.pid`)
 - `--pidfile=path` – The path to the PID file of the worker to stop.
-- `--all` – Stops all daemonized workers with default pidfiles (ie. `tmp/pids/exekutor*.pid`). You can use `pidfile` option 
-to use a custom pidfile pattern.
+- `--all` – Stops all daemonized workers with default pidfiles (ie. `tmp/pids/exekutor*.pid`). You can use `pidfile`
+  option
+  to use a custom pidfile pattern.
 - `--shutdown_timeout=int` – The amount of seconds to wait before killing a worker process.
 
 ### Restart
@@ -343,10 +367,10 @@ exekutor restart [options]
 
 #### Options
 
-See [start](#start). 
+See [start](#start).
 
->Exekutor will not remember the original start options, they have to be fully specified again when
-you restart a worker.
+> Exekutor will not remember the original start options, they have to be fully specified again when
+> you restart a worker.
 
 - `--shutdown_timeout=int` – The amount of seconds to wait before killing a worker process.
 
@@ -373,12 +397,14 @@ exekutor cleanup [all|jobs|workers] [options]
 #### Options
 
 - `--environment=arg` – The Rails environment to load.
-- `--job_status=arg` – The statuses to purge. 
+- `--job_status=arg` – The statuses to purge.
 - `--timeout=int` – The timeout in hours. Workers and jobs before the timeout will be purged.
-- `--job_timeout=int` – The job timeout in hours (overrides `--timeout`). Jobs where `scheduled_at` is before the timeout 
-will be purged.
-- `--worker_timeout=int` – The worker timeout in hours (overrides `--timeout`). Workers where the last heartbeat is before 
-the timeout will be purged.
+- `--job_timeout=int` – The job timeout in hours (overrides `--timeout`). Jobs where `scheduled_at` is before the
+  timeout
+  will be purged.
+- `--worker_timeout=int` – The worker timeout in hours (overrides `--timeout`). Workers where the last heartbeat is
+  before
+  the timeout will be purged.
 
 ## Job options
 
@@ -386,12 +412,13 @@ You can include the `Exekutor::JobObtions` mixin into your active job class to u
 
 ### Execution timeout
 
-Limit the execution time of your job. 
+Limit the execution time of your job.
 
-> Be aware that `Timeout::timeout` is used internally for this, which can raise an error at any line of code in your 
+> Be aware that `Timeout::timeout` is used internally for this, which can raise an error at any line of code in your
 > application. _Use with caution_
 
 ```ruby
+
 class MyJob < ActiveJob::Base
   include Exekutor::JobOptions
   exekutor_options execution_timeout: 10.seconds
@@ -403,10 +430,11 @@ MyJob.set(execution_timeout: 1.minute).perform_later
 
 ### Queue timeout
 
-When a queue timeout is specified, Exekutor will not execute or job if it has been in the queue for longer than the 
+When a queue timeout is specified, Exekutor will not execute or job if it has been in the queue for longer than the
 timeout.
 
 ```ruby
+
 class MyJob < ActiveJob::Base
   include Exekutor::JobOptions
   exekutor_options queue_timeout: 1.hour
@@ -419,22 +447,23 @@ MyJob.set(queue_timeout: 15.minutes).perform_later
 ## Asynchronous methods
 
 Include the `Exekutor::Asynchronous` mixin in any class to make one or more of its methods be executed asynchronously
-through active job. 
+through active job.
 
 ```ruby
-class MyRecord < ActiveRecord::Base 
+
+class MyRecord < ActiveRecord::Base
   include Exekutor::Asynchronous
 
   def method(arg1, arg2)
     puts "arg1: #{arg1.inspect}; arg2: #{arg2.inspect}"
   end
-  
+
   perform_asynchronously :method
 
   def self.class_method(arg1, arg2)
     puts "arg1: #{arg1.inspect}; arg2: #{arg2.inspect}"
   end
-  
+
   perform_asynchronously :class_method, class_method: true
 end
 ```
@@ -442,32 +471,35 @@ end
 ### Caveats
 
 #### Method arguments
+
 Exekutor can only perform methods asynchronously if all the arguments can be serialized by active job. See the [active
 job documentation](https://guides.rubyonrails.org/v6.1/active_job_basics.html#supported-types-for-arguments) for the
 supported arguments.
 
 #### Executing instance methods
+
 Exekutor can only perform instance methods asynchronously if the class instance can be serialized by active job.
 In practice, this means that you can only do this on active record models because they are serialized to a `GlobalID`.
 If you want to use this mixin on another class, you'll have to write your own active job serializer.
 
 ## Hooks
 
-You can register hooks to be called for certain lifecycle events in Exekutor. These hooks work similar to 
+You can register hooks to be called for certain lifecycle events in Exekutor. These hooks work similar to
 `ActiveSupport::Callbacks`.
 
 ```ruby
-class MyHook 
+
+class MyHook
   include Exekutor::Hook
-  
-  around_job_execution :instrument 
-  after_job_failure {|_job, error| report_error error }
+
+  around_job_execution :instrument
+  after_job_failure { |_job, error| report_error error }
   after_fatal_error :report_error
-    
+
   def instrument(job)
     ErrorMonitoring.monitor_transaction(job) { yield }
   end
-    
+
   def report_error(error)
     ErrorMonitoring.report error
   end
@@ -477,15 +509,16 @@ end
 #### Hook types
 
 - `before_enqueue` – Called before a job is enqueued. Receives the job as an argument.
-- `around_enqueue` – Called when a job is enqueued, `yield` must be called to propagate the call. Receives the job as an 
-argument. 
+- `around_enqueue` – Called when a job is enqueued, `yield` must be called to propagate the call. Receives the job as an
+  argument.
 - `after_enqueue` – Called after a job is enqueued. Receives the job as an argument.
 - `before_job_execution` – Called before a job is executed. Receives a `Hash` with job info as an argument.
-- `around_job_execution` – Called when a job is executed, `yield` must be called to propagate the call. Receives a `Hash` 
-with job info as an argument.
+- `around_job_execution` – Called when a job is executed, `yield` must be called to propagate the call. Receives
+  a `Hash`
+  with job info as an argument.
 - `after_job_execution` – Called after a job is executed. Receives a `Hash` with job info as an argument.
-- `on_job_failure` – Called after a job has raised an error. Receives a `Hash` with job info and the raised error as 
-arguments.
+- `on_job_failure` – Called after a job has raised an error. Receives a `Hash` with job info and the raised error as
+  arguments.
 - `on_fatal_error` – Called after an error was raised outside job execution. Receives the raised error as an argument.
 - `before_startup` – Called before starting up a worker. Receives the worker as an argument.
 - `after_startup` – Called after a worker has started up. Receives the worker as an argument.
@@ -513,20 +546,23 @@ Exekutor::Worker.start(worker_options)
 ### Options
 
 - `:identifier` – the identifier for this worker
-- `:queues` – the queues to work on 
+- `:queues` – the queues to work on
+- `:min_priority` – the minimum job priority to execute
+- `:max_priority` – the maximum job priority to execute
 - `:enable_listener` – whether to enable the listener
 - `:min_threads` – the minimum number of execution threads that should be active
 - `:max_threads` – the maximum number of execution threads that may be active
-- `:max_thread_idletime` – the maximum duration a thread may be idle before being stopped 
-- `:polling_interval` – the polling interval 
-- `:poling_jitter` – the polling jitter 
+- `:max_thread_idletime` – the maximum duration a thread may be idle before being stopped
+- `:polling_interval` – the polling interval
+- `:poling_jitter` – the polling jitter
 - `:set_db_connection_name` – whether the DB connection name should be set
 - `:wait_for_termination` – how long the worker should wait on jobs to be completed before exiting
-- `:status_server_port` – the port to run the status server on 
+- `:status_server_port` – the port to run the status server on
 - `:status_server_handler` – The name of the rack handler to use for the status server
 - `:healthcheck_timeout` – The timeout of a worker before the status server deems it as down
 
 The default values for most of the options can be fetched by:
+
 ```ruby
 Exekutor.config.worker_options # => { enable_listener: … } 
 ```
@@ -556,7 +592,7 @@ worker.stop
 
 #### Kill
 
-Kills the worker. This method cancels job execution and return the jobs back to the pending state. This method does 
+Kills the worker. This method cancels job execution and return the jobs back to the pending state. This method does
 **not** invoke the `shutdown` hooks.
 
 ```ruby
@@ -585,16 +621,17 @@ cleanup.cleanup_jos(options)
 
 ### Cleanup workers
 
-Cleans up stale workers. Worker records should be automatically purged upon shutdown, but when for example the DB 
+Cleans up stale workers. Worker records should be automatically purged upon shutdown, but when for example the DB
 connection is down or when a worker is killed the records might be left behind.
 
-Exekutor has a DB trigger to automatically release unfinished jobs when a worker record is deleted. This means that 
-stale worker records can lock jobs without them being executed. Cleaning up these records will release these jobs so 
-they can be performed by other workers.  
+Exekutor has a DB trigger to automatically release unfinished jobs when a worker record is deleted. This means that
+stale worker records can lock jobs without them being executed. Cleaning up these records will release these jobs so
+they can be performed by other workers.
 
 #### Options
-- `:timeout` – The timeout for worker heartbeats. Workers where the last heartbeat is before the timeout will be purged. 
-    Make sure the timeout is not shorter than the execution time of your jobs.
+
+- `:timeout` – The timeout for worker heartbeats. Workers where the last heartbeat is before the timeout will be purged.
+  Make sure the timeout is not shorter than the execution time of your jobs.
 
 ### Cleanup jobs
 
@@ -602,12 +639,13 @@ Exekutor does not delete jobs after they are finished. This means the jobs table
 will slow down your table. Regularly purging these jobs will make sure your jobs table will remain blazing fast.
 
 #### Options
+
 - `:timeout` – The timeout for jobs. Jobs where `scheduled_at` is before the timeout will be purged.
 - `:status` – The job statuses to purgs. Only jobs with the specified status will be purged.
 
 ## Deployment
 
-When deploying on a server, use a process monitoring tool like Eye, Bluepill, or God to manage your workers in a 
+When deploying on a server, use a process monitoring tool like Eye, Bluepill, or God to manage your workers in a
 production environment. This will ensure your workers will be kept active.
 
 ### Error reporting
@@ -643,19 +681,19 @@ $ curl localhost:9000/threads
 ## Caveats
 
 ### No run-once guarantee
- 
+
 **Make your jobs idempotent**
 
 Although Exekutor does it's best to execute a job only once, there is no guarantee this actually happens. If the
 database connection is lost while executing a job, a worker cannot mark the job as completed. While the connection is
 down, the worker keeps track of which jobs were finished and mark them as such as soon as the database connection comes
-back up. 
+back up.
 
-If the worker is stopped or killed before this happens, the job will be stuck in the `executing` status (and the worker 
-record will become stale). The cleanup task will purge any stale workers and release the jobs, after which these jobs 
+If the worker is stopped or killed before this happens, the job will be stuck in the `executing` status (and the worker
+record will become stale). The cleanup task will purge any stale workers and release the jobs, after which these jobs
 will be executed again by another worker.
 
-This means you have to design your jobs to be idempotent: executing it multiple times should have the same effect. It 
+This means you have to design your jobs to be idempotent: executing it multiple times should have the same effect. It
 also means that it's not wise to shutdown your workers without an active database connection.
 
 ## Development

@@ -82,6 +82,7 @@ module Exekutor
   # @return [String] The given error class, message, and cleaned backtrace as a string
   def self.strferr(err)
     raise ArgumentError, "err must not be nil" if err.nil?
+    return err if err.is_a? String
 
     "#{err.class} – #{err.message}\nat #{
       err.backtrace ? backtrace_cleaner.clean(err.backtrace).join("\n   ") : "unknown location"

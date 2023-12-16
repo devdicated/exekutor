@@ -23,6 +23,7 @@ module Exekutor
         # @option options [String] :environment The Rails environment to load
         # @option options [String] :queue The queue(s) to watch
         # @option options [String] :threads The number of threads to use for job execution
+        # @option options [String] :priority The priorities to execute
         # @option options [Integer] :poll_interval The interval in seconds for job polling
         # @return [Void]
         def start(options)
@@ -97,16 +98,22 @@ module Exekutor
                                       .reject { |_, value| value.is_a? DefaultOptionValue }
                                       .transform_keys(poll_interval: :polling_interval)
 
-          min_threads, max_threads = parse_thread_limitations(cli_options[:threads])
+          min_threads, max_threads = parse_integer_range(cli_options[:threads])
           if min_threads
             worker_options[:min_threads] = min_threads
             worker_options[:max_threads] = max_threads || min_threads
           end
 
+          min_priority, max_priority = parse_integer_range(cli_options[:priority])
+          if min_threads
+            worker_options[:min_priority] = min_priority
+            worker_options[:max_priority] = max_priority if max_priority
+          end
+
           worker_options
         end
 
-        def parse_thread_limitations(threads)
+        def parse_integer_range(threads)
           return if threads.blank? || threads.is_a?(DefaultOptionValue)
 
           if threads.is_a?(Integer)
@@ -237,18 +244,31 @@ module Exekutor
           def load_config(worker_options)
             each_file do |path|
               config = load_config_file(path)
-              apply_config_file(config, worker_options)
+              convert_duration_options! config
+
+              worker_options.merge! extract_worker_options!(config)
+              apply_config_file(config)
             end
+            Exekutor.config
           end
 
           private
 
+          WORKER_OPTIONS = %i[queues min_priority max_priority min_threads max_threads max_thread_idletime
+                              wait_for_termination].freeze
+
           def each_file(&block)
             if @config_files.is_a? DefaultConfigFileValue
               @config_files.to_a(@options[:identifier]).each(&block)
-            elsif @config_files
+            elsif @config_files.is_a? String
+              yield File.expand_path(@config_files, Rails.root)
+            else
               @config_files.map { |path| File.expand_path(path, Rails.root) }.each(&block)
             end
+          end
+
+          def extract_worker_options!(config)
+            config.extract!(*WORKER_OPTIONS)
           end
 
           def load_config_file(path)
@@ -262,20 +282,13 @@ module Exekutor
               raise Error, "Config should have an `exekutor` root node: #{path} (Found: #{config.keys.join(", ")})"
             end
 
-            config
+            config[:exekutor]
           end
 
-          def apply_config_file(config, worker_options)
-            # Remove worker specific options before calling Exekutor.config.set
-            worker_options.merge! config[:exekutor].extract!(:queue, :status_server_port)
-
-            convert_duration_options! config[:exekutor]
-
-            begin
-              Exekutor.config.set(**config[:exekutor])
-            rescue StandardError => e
-              raise Error, "Cannot load config file: #{path} (#{e})"
-            end
+          def apply_config_file(config)
+            Exekutor.config.set(**config)
+          rescue StandardError => e
+            raise Error, "Cannot load config file (#{e})"
           end
 
           def convert_duration_options!(config)
@@ -346,6 +359,7 @@ module Exekutor
           "Minimum: 1, Maximum: Active record pool size minus 1, with a minimum of 1"
         ).freeze
         DEFAULT_QUEUE = DefaultOptionValue.new("All queues").freeze
+        DEFAULT_PRIORITIES = DefaultOptionValue.new("All priorities").freeze
         DEFAULT_FOREVER = DefaultOptionValue.new("Forever").freeze
 
         DEFAULT_CONFIGURATION = { set_db_connection_name: true }.freeze

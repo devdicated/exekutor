@@ -9,7 +9,7 @@ class ProviderTest < Minitest::Test
   def setup
     super
     @thread_pool = Concurrent::FixedThreadPool.new(2)
-    @reserver = Exekutor.const_get(:Internal)::Reserver.new("test-worker-id", ["provider-test-queue-name"])
+    @reserver = Exekutor.const_get(:Internal)::Reserver.new("test-worker-id", queues: ["provider-test-queue-name"])
     @executor = Exekutor.const_get(:Internal)::Executor.new(max_threads: 1)
     @provider = Exekutor.const_get(:Internal)::Provider.new(reserver: reserver, executor: executor, pool: thread_pool,
                                                             polling_interval: 60)
