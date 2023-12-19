@@ -21,7 +21,7 @@ class QueueTest < Minitest::Test
 
   def test_queue_jobs
     jobs = [TestJobs::Simple.new, TestJobs::Simple.new]
-    queue.push(*jobs)
+    queue.push(jobs)
 
     jobs.each do |job|
       assert ::Exekutor::Job.exists?(active_job_id: job.job_id)
@@ -40,7 +40,7 @@ class QueueTest < Minitest::Test
   def test_queue_jobs_at
     schedule_at = 1.hour.from_now.round(6)
     jobs = [TestJobs::Simple.new, TestJobs::Simple.new]
-    queue.schedule_at(*jobs, schedule_at)
+    queue.schedule_at(jobs, schedule_at)
     jobs.each do |job|
       assert ::Exekutor::Job.exists?(active_job_id: job.job_id)
       assert_equal [schedule_at], ::Exekutor::Job.where(active_job_id: job.job_id).pluck(:scheduled_at)

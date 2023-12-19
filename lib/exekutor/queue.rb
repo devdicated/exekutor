@@ -17,18 +17,18 @@ module Exekutor
     MAX_NAME_LENGTH = 63
 
     # Adds a job to the queue, scheduled to perform immediately
-    # @param jobs [Array<ActiveJob::Base>] the jobs to enqueue
-    # @return [void]
-    def push(*jobs)
-      create_records(jobs)
+    # @param jobs [ActiveJob::Base,Array<ActiveJob::Base>] the jobs to enqueue
+    # @return [Integer] the number of enqueued jobs
+    def push(jobs)
+      create_records Array.wrap(jobs)
     end
 
     # Adds a job to the queue, scheduled to be performed at the indicated time
-    # @param jobs [Array<ActiveJob::Base>] the jobs to enqueue
+    # @param jobs [ActiveJob::Base,Array<ActiveJob::Base>] the jobs to enqueue
     # @param timestamp [Time,Date,Integer,Float] when the job should be performed
-    # @return [void]
-    def schedule_at(*jobs, timestamp)
-      create_records(jobs, scheduled_at: timestamp)
+    # @return [Integer] the number of enqueued jobs
+    def schedule_at(jobs, timestamp)
+      create_records(Array.wrap(jobs), scheduled_at: timestamp)
     end
 
     private
@@ -38,16 +38,22 @@ module Exekutor
     # @param scheduled_at [Time,Date,Integer,Float] when the job should be performed
     # @return [void]
     def create_records(jobs, scheduled_at: nil)
-      unless jobs.is_a?(Array) && jobs.all?(ActiveJob::Base)
-        raise ArgumentError, "jobs must be an array with ActiveJob items"
+      raise ArgumentError, "jobs must be an array with ActiveJob items (Actual: #{jobs.class})" unless jobs.is_a?(Array)
+
+      unless jobs.all?(ActiveJob::Base)
+        raise ArgumentError, "jobs must be an array with ActiveJob items (Found: #{
+          jobs.map { |job| job.class unless job.is_a? ActiveJob::Base }.compact.join(", ")
+        })"
       end
 
       scheduled_at = parse_scheduled_at(scheduled_at)
       json_serializer = Exekutor.config.load_json_serializer
 
+      inserted_records = nil
       Internal::Hooks.run :enqueue, jobs do
-        insert_job_records(jobs, scheduled_at, json_serializer)
+        inserted_records = insert_job_records(jobs, scheduled_at, json_serializer)
       end
+      inserted_records
     end
 
     # Converts the given value to an epoch timestamp. Returns the current epoch timestamp if the given value is nil
@@ -78,20 +84,35 @@ module Exekutor
     # @param json_serializer [#dump] the serializer to use to convert hashes into JSON
     def insert_job_records(jobs, scheduled_at, json_serializer)
       if jobs.one?
-        sql_binds = job_sql_binds(jobs.first, scheduled_at, json_serializer)
-        Exekutor::Job.connection.exec_query <<~SQL, ACTION_NAME, sql_binds, prepare: true
-          INSERT INTO exekutor_jobs ("queue", "priority", "scheduled_at", "active_job_id", "payload", "options") VALUES ($1, $2, to_timestamp($3), $4, $5, $6) RETURNING id;
-        SQL
+        insert_singular_job(jobs.first, json_serializer, scheduled_at)
       else
         insert_statements = jobs.map do |job|
           Exekutor::Job.sanitize_sql_for_assignment(
             ["(?, ?, to_timestamp(?), ?, ?::jsonb, ?::jsonb)", *job_sql_binds(job, scheduled_at, json_serializer)]
           )
         end
-        Exekutor::Job.connection.insert <<~SQL, ACTION_NAME
-          INSERT INTO exekutor_jobs ("queue", "priority", "scheduled_at", "active_job_id", "payload", "options") VALUES #{insert_statements.join(",")}
-        SQL
+        begin
+          pg_result = Exekutor::Job.connection.execute <<~SQL, ACTION_NAME
+            INSERT INTO exekutor_jobs ("queue", "priority", "scheduled_at", "active_job_id", "payload", "options") VALUES #{insert_statements.join(",")}
+          SQL
+          inserted_records = pg_result.cmd_tuples
+        ensure
+          pg_result.clear
+        end
+        inserted_records
       end
+    end
+
+    # Fires off an INSERT INTO query for the given job using a prepared statement
+    # @param job [ActiveJob::Base] the job to insert
+    # @param scheduled_at [Integer,Float] the scheduled execution time for the jobs as an epoch timestamp
+    # @param json_serializer [#dump] the serializer to use to convert hashes into JSON
+    def insert_singular_job(job, json_serializer, scheduled_at)
+      sql_binds = job_sql_binds(job, scheduled_at, json_serializer)
+      ar_result = Exekutor::Job.connection.exec_query <<~SQL, ACTION_NAME, sql_binds, prepare: true
+        INSERT INTO exekutor_jobs ("queue", "priority", "scheduled_at", "active_job_id", "payload", "options") VALUES ($1, $2, to_timestamp($3), $4, $5, $6) RETURNING id;
+      SQL
+      ar_result.length
     end
 
     # Converts the specified job to SQL bind parameters to insert it into the database
@@ -124,7 +145,7 @@ module Exekutor
     def exekutor_options(job)
       return nil unless job.respond_to?(:exekutor_options)
 
-      options = job.exekutor_options.stringify_keys
+      options = job.exekutor_options&.stringify_keys
       if options && options["queue_timeout"]
         options["start_execution_before"] = Time.now.to_f + options.delete("queue_timeout").to_f
       end

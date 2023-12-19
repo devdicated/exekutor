@@ -65,6 +65,7 @@ class ConfigurationTest < Minitest::Test
 
     mock_connection = mock
     mock_connection.expects(:exec_query).with(anything, anything, includes(1234), anything)
+                   .returns(ActiveRecord::Result.new([], [1]))
     Exekutor::Job.expects(:connection).returns(mock_connection)
 
     Exekutor::Queue.new.push(TestJobs::Simple.new)
