@@ -293,6 +293,21 @@ module Exekutor
 
     # @!macro
     #   @!method $1?
+    #     Whether the priority should be inverted. If true, the job with the highest value as the priority is the most
+    #     important. If false, the job with the lowest value as the priority is the most important.
+    #     === Default value:
+    #     false
+    #     @return [Boolean]
+    #   @!method $1=(value)
+    #     Sets whether the the priority should be inverted. When true, the job with the highest value as the priority is
+    #     the most important; when false, the job with the lowest value as the priority is the most important.
+    #     @param value [Boolean] whether the job with the highest priority value is the most important.
+    #     @return [self]
+    define_option :inverse_priority, reader: :inverse_priority?, type: [TrueClass, FalseClass], required: true,
+                  default: false
+
+    # @!macro
+    #   @!method $1?
     #     Whether to suppress STDOUT messages
     #     === Default value:
     #     false

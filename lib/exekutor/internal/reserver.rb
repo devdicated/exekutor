@@ -27,7 +27,7 @@ module Exekutor
           UPDATE exekutor_jobs SET worker_id = $1, status = 'e' WHERE id IN (
              SELECT id FROM exekutor_jobs
                 WHERE scheduled_at <= now() AND "status"='p'#{" AND #{@reserve_filter_sql}" if @reserve_filter_sql}
-                ORDER BY priority, scheduled_at, enqueued_at
+                ORDER BY priority#{" DESC" if Exekutor.config.inverse_priority?}, scheduled_at, enqueued_at
                 FOR UPDATE SKIP LOCKED
                 LIMIT $2
           ) RETURNING "id", "payload", "options", "scheduled_at"
