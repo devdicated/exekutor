@@ -18,7 +18,7 @@ module Exekutor
       UNKNOWN = Object.new.freeze
       private_constant :UNKNOWN
 
-      MAX_WAIT_TIMEOUT = 300
+      MAX_WAIT_TIMEOUT = 100
       private_constant :MAX_WAIT_TIMEOUT
 
       # Creates a new provider

@@ -240,7 +240,7 @@ class ProviderTest < Minitest::Test
     provider.stubs(:polling_enabled?).returns(false)
     provider.stubs(:next_job_scheduled_at).returns(nil)
 
-    assert_equal 300, provider.send(:wait_timeout)
+    assert_equal 100, provider.send(:wait_timeout)
   end
 
   def test_wait_timeout_with_immediate_job

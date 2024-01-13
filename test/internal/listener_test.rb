@@ -75,7 +75,7 @@ class ListenerTest < Minitest::Test
   def test_incomplete_payload
     wait_until { listener.send(:listening?) }
 
-    listener.send(:logger).expects(:error).with(regexp_matches(/^\[Listener\] Notification payload is missing t$/))
+    listener.send(:logger).expects(:error).with(regexp_matches(/Notification payload is missing t$/))
 
     Exekutor::Job.connection.exec_query(
       %(NOTIFY "#{listener.class::JOB_ENQUEUED_CHANNEL}", 'id:test-id;q:test-queue;p:123')

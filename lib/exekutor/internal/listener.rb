@@ -24,7 +24,7 @@ module Exekutor
       # @param pool [ThreadPoolExecutor] the thread pool to use
       # @param wait_timeout [Integer] the time to listen for notifications
       # @param set_db_connection_name [Boolean] whether to set the application name on the DB connection
-      def initialize(worker_id:, provider:, pool:, queues: nil, min_priority: nil, max_priority: nil, wait_timeout: 60,
+      def initialize(worker_id:, provider:, pool:, queues: nil, min_priority: nil, max_priority: nil, wait_timeout: 100,
                      set_db_connection_name: false)
         super()
         @config = {
@@ -159,11 +159,13 @@ module Exekutor
       # @yieldparam connection [PG::Connection] the DB connection
       def with_pg_connection # :nodoc:
         ar_conn = Exekutor::Job.connection_pool.checkout.tap do |conn|
+          DatabaseConnection.ensure_active! conn
           # Action Cable is taking ownership over this database connection, and
           # will perform the necessary cleanup tasks
-          ActiveRecord::Base.connection_pool.remove(conn)
+          Exekutor::Job.connection_pool.remove conn
         end
-        DatabaseConnection.ensure_active! ar_conn
+        # Make sure the connection pool does not hold a reference to this thread
+        Exekutor::Job.connection_handler.clear_active_connections!
         pg_conn = ar_conn.raw_connection
 
         verify!(pg_conn)
@@ -172,7 +174,7 @@ module Exekutor
         end
         yield pg_conn
       ensure
-        ar_conn.disconnect!
+        ar_conn&.disconnect!
       end
 
       # Verifies the connection
@@ -201,7 +203,7 @@ module Exekutor
                        raise Error, "Invalid notification payload: #{payload}"
                      end
           if (missing_keys = JOB_INFO_KEYS.select { |n| job_info[n].blank? }).present?
-            raise Error, "[Listener] Notification payload is missing #{missing_keys.join(", ")}"
+            raise Error, "Notification payload is missing #{missing_keys.join(", ")}"
           end
 
           job_info
