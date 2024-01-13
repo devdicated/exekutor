@@ -163,8 +163,12 @@ module Exekutor
 
           # Try to update the job and create a JobError record if update succeeds
         elsif update_job job, status: next_status, runtime: runtime
-          JobError.create(job_id: job[:id], error: error)
+          JobError.create(job_id: job[:id], error: error_to_json(error))
         end
+      end
+
+      def error_to_json(error)
+        { type: error.class.name, message: error.message }
       end
 
       def delete_job?(next_status)
