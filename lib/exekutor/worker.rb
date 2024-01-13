@@ -240,7 +240,7 @@ module Exekutor
       if timeout.is_a?(Numeric) && timeout.zero?
         @executor.kill
       elsif timeout.is_a?(Numeric) && timeout.positive?
-        @executor.kill unless @executor.wait_for_termination timeout
+        @executor.kill unless @executor.wait_for_termination(timeout)
       elsif timeout
         @executor.wait_for_termination
       end

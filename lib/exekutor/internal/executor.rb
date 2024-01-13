@@ -15,6 +15,8 @@ module Exekutor
       define_callbacks :after_execute, freeze: true
       attr_reader :pending_job_updates
 
+      delegate :wait_for_termination, to: :@executor
+
       # rubocop:disable Metrics/ParameterLists
 
       # Create a new executor

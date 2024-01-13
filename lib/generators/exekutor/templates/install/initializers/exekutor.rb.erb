@@ -1,14 +1,26 @@
-Exekutor.configure do
+# frozen_string_literal: true
+
+Exekutor.configure do |config|
   # Check the README for all configuration options
 
   # config.logger = Logger.new("log/exekutor.log")
   <%= default_config = Exekutor::Configuration.new
+      value_transformer = -> (value) do
+        case value
+        when NilClass
+          'nil'
+        when ActiveSupport::Duration
+          value.inspect.gsub(' ', '.')
+        else
+          value.inspect
+        end
+      end
       Exekutor::Configuration.__option_names
                              .without(:logger, :base_record_class_name, :json_serializer, :polling_jitter,
-                                      :max_execution_thread_idletime, :status_server_handler)
+                                      :max_execution_thread_idletime, :set_db_connection_name, :status_server_handler)
                              .select {|name| default_config.respond_to?(name) }
-                             .map {|name|  [name, default_config.send(name)] }
-                             .filter {|(_name, value)| value.present?}
-                             .map {|(name, value)| "# config.#{name} = #{ value.inspect}" }
+                             .to_h {|name| [name, default_config.send(name)] }
+                             .transform_values(&value_transformer)
+                             .map {|(name, value)| "# config.#{name} = #{value}" }
                              .join("\n  ") %>
 end
