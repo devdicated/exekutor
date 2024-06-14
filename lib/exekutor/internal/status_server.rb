@@ -59,8 +59,9 @@ module Exekutor
           server.send(shutdown_method)
           Exekutor.say "Status server stopped"
         elsif server
-          Exekutor.print_error "Cannot shutdown status server, " \
-                               "#{server.class.name} does not respond to `shutdown` or `stop`"
+          Exekutor.print_error <<~ERR
+            Cannot shutdown status server, #{server.class.name} does not respond to `shutdown` or `stop`
+          ERR
         end
       end
 
@@ -126,10 +127,9 @@ module Exekutor
           running = @worker.running?
           last_heartbeat = (@worker.last_heartbeat if running)
           running = false if flatlined?(last_heartbeat)
-          [(running ? 200 : 503), { "Content-Type" => "text/plain" }, [
-            "#{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}; " \
-            "Heartbeat: #{last_heartbeat&.iso8601 || "null"}"
-          ]]
+          [(running ? 200 : 503), { "Content-Type" => "text/plain" }, [<<~BODY]]
+            #{running ? "[OK]" : "[Service unavailable]"} ID: #{@worker.id}; State: #{@worker.state}; Heartbeat: #{last_heartbeat&.iso8601 || "null"}
+          BODY
         end
 
         def render_ready
@@ -160,11 +160,7 @@ module Exekutor
       private
 
       def get_rack_handler(handler)
-        if defined?(::Rackup::Handler)
-          ::Rackup::Handler.get(handler)
-        else
-          ::Rack::Handler.get(handler)
-        end
+        defined?(::Rackup::Handler) ? ::Rackup::Handler.get(handler) : ::Rack::Handler.get(handler)
       end
 
       def start_thread
