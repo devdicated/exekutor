@@ -48,7 +48,7 @@ module Exekutor
         self.class.validate_exekutor_options! job_options
         @exekutor_options = @exekutor_options.merge job_options
       end
-      super(options)
+      super
     end
 
     class_methods do
