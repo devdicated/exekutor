@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../rails_helper"
+require "rackup/handler"
 require "net/http"
 
 class StatusServerTest < Minitest::Test
@@ -155,7 +156,7 @@ class StatusServerTest < Minitest::Test
     server.send(:logger).expects(:info)
 
     has_raised = false
-    handler = Rack::Handler.get("webrick")
+    handler = Rackup::Handler.get("webrick")
     handler.expects(:run).with { has_raised = true }.raises(error_class)
 
     server.start
@@ -167,7 +168,7 @@ class StatusServerTest < Minitest::Test
     handler = Class.new(TestRackHandler) do
       alias_method :stop, :_stop
     end.new
-    Rack::Handler.expects(:get).with("test").returns(handler)
+    Rackup::Handler.expects(:get).with("test").returns(handler)
     @server = Exekutor.const_get(:Internal)::StatusServer.new(
       worker: @worker, pool: @pool, port: @port, handler: "test"
     )
@@ -181,7 +182,7 @@ class StatusServerTest < Minitest::Test
 
   def test_handler_without_shutdown
     handler = TestRackHandler.new
-    Rack::Handler.expects(:get).with("test").returns(handler)
+    Rackup::Handler.expects(:get).with("test").returns(handler)
     @server = Exekutor.const_get(:Internal)::StatusServer.new(
       worker: @worker, pool: @pool, port: @port, handler: "test"
     )

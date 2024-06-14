@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
+require "rackup/handler" unless defined?(Rack::Handler)
+
 module Exekutor
   module Internal
     # Serves a simple health check app. The app provides 4 endpoints:
     # - +/+, which lists the other endpoints;
     # - +/ready+, which indicates whether the worker is ready to start work;
     # - +/live+, which indicates whether the worker is ready and whether the worker is still alive;
-    # - +/threads+, which indicated the thread usage of the worker.
+    # - +/threads+, which indicates the thread usage of the worker.
     #
     # Please note that this server uses +webrick+ by default, which is no longer a default gem from ruby 3.0 onwards.
     #
@@ -28,7 +30,7 @@ module Exekutor
         @worker = worker
         @pool = pool
         @port = port
-        @handler = Rack::Handler.get(handler)
+        @handler = get_rack_handler(handler)
         @heartbeat_timeout = heartbeat_timeout
         @thread_running = Concurrent::AtomicBoolean.new false
         @server = Concurrent::AtomicReference.new
@@ -91,7 +93,7 @@ module Exekutor
         end
 
         def call(env)
-          case Rack::Request.new(env).path
+          case ::Rack::Request.new(env).path
           when "/"
             render_root
           when "/ready"
@@ -156,6 +158,14 @@ module Exekutor
       end
 
       private
+
+      def get_rack_handler(handler)
+        if defined?(::Rackup::Handler)
+          ::Rackup::Handler.get(handler)
+        else
+          ::Rack::Handler.get(handler)
+        end
+      end
 
       def start_thread
         @pool.post(@worker, @port) { |*args| run(*args) } if state == :started
